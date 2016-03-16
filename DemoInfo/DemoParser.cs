@@ -428,16 +428,17 @@ namespace DemoInfo
 		internal Dictionary<int, byte[]> instanceBaseline = new Dictionary<int, byte[]>();
 
 		/// <summary>
+		/// How long a tick of the demo is in s^-1
+		/// </summary>
+		/// <value>The tick time.</value>
+		public float TickTime {get; internal set;}
+
+		/// <summary>
 		/// The tickrate *of the demo* (16 for normal GOTV-demos)
 		/// </summary>
 		/// <value>The tick rate.</value>
 		public float TickRate { get {return 1/TickTime;} }
 
-		/// <summary>
-		/// How long a tick of the demo is in s^-1
-		/// </summary>
-		/// <value>The tick time.</value>
-		public float TickTime {get; internal set;}
 
 		/// <summary>
 		/// Gets the parsing progess. 0 = beginning, ~1 = finished (it can actually be > 1, so be careful!)

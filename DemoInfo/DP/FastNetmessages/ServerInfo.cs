@@ -39,7 +39,7 @@ namespace DemoInfo
                 if (wireType == 5) {
                     if (fieldnum == 14){
                         TickInterval = bitstream.ReadFloat();
-			parser.TickTime = TickInterval;
+                        parser.TickTime = TickInterval;
                     } else {
                         var val = bitstream.ReadInt(32);
                         switch(fieldnum) {
