@@ -72,6 +72,7 @@
     <Compile Include="DemoParser.cs" />
     <Compile Include="DP\DemoPacketParser.cs" />
     <Compile Include="DP\Entity.cs" />
+    <Compile Include="DP\FastNetmessages\ServerInfo.cs" />
     <Compile Include="DP\Handler\GameEventHandler.cs" />
     <Compile Include="DP\Handler\PacketEntitesHandler.cs" />
     <Compile Include="DP\Handler\PropDecoder.cs" />
@@ -126,7 +127,5 @@
   </Target>
   -->
   <ItemGroup />
-  <ItemGroup>
-    <Folder Include="DP\FastNetmessages\" />
-  </ItemGroup>
+  <ItemGroup />
 </Project>

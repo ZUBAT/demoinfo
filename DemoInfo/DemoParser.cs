@@ -431,24 +431,25 @@ namespace DemoInfo
 		/// The tickrate *of the demo* (16 for normal GOTV-demos)
 		/// </summary>
 		/// <value>The tick rate.</value>
-		public float TickRate {
-			get { return this.Header.PlaybackFrames / this.Header.PlaybackTime; }
-		}
+		public float TickRate { get {return 1/TickTime;} }
 
 		/// <summary>
 		/// How long a tick of the demo is in s^-1
 		/// </summary>
 		/// <value>The tick time.</value>
-		public float TickTime {
-			get { return this.Header.PlaybackTime / this.Header.PlaybackFrames; }
-		}
+		public float TickTime {get; internal set;}
 
 		/// <summary>
 		/// Gets the parsing progess. 0 = beginning, ~1 = finished (it can actually be > 1, so be careful!)
 		/// </summary>
 		/// <value>The parsing progess.</value>
 		public float ParsingProgess {
-			get { return (CurrentTick / (float)Header.PlaybackFrames); }
+			get {
+				if (Header.PlaybackFrames == 0)
+					return 0;
+				else
+					return (CurrentTick / (float)Header.PlaybackFrames); 
+			}
 		}
 
 		/// <summary>
