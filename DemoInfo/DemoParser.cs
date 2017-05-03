@@ -453,11 +453,11 @@ namespace DemoInfo
 		/// How long a tick of the demo is in s^-1
 		/// </summary>
 		/// <value>The tick time.</value>
-		private List<int> tickGaps = new List<int>();
-		private float _ticktime;
 		public float TickTime {
 			get { return IsHeaderCorrupted ? _ticktime : this.Header.PlaybackTime / this.Header.PlaybackFrames; }
 		}
+		private List<int> tickGaps = new List<int>();
+		private float _ticktime;
 
 		/// <summary>
 		/// Gets the parsing progess. 0 = beginning, ~1 = finished (it can actually be > 1, so be careful!)
