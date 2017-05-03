@@ -40,6 +40,11 @@ namespace DemoInfo
 		public event EventHandler<HeaderParsedEventArgs> HeaderCorrupted;
 
 		/// <summary>
+		/// Raised when the time variables have been fixed for a demo with a corrupted header
+		/// </summary>
+		public event EventHandler<TimeFixedEventArgs> TimeFixed;
+
+		/// <summary>
 		/// Occurs when the match started, so when the "begin_new_match"-GameEvent is dropped. 
 		/// This usually right before the freezetime of the 1st round. Be careful, since the players
 		/// usually still have warmup-money when this drops.
@@ -533,12 +538,13 @@ namespace DemoInfo
 
 			if (IsHeaderCorrupted)
 			{				
-				Console.WriteLine("WARNING: The header for this demo file is corrupted.  TickRate, TickTime, CurrentTime will be 0 for ticks at the start of the demo.  ParsingProgress, PlaybackFrames, PlaybackTicks, PlaybackTime will always be 0.  HeaderCorrupted event triggered.");
+				Console.WriteLine("WARNING: The header for this demo file is corrupted.  TickRate, TickTime, CurrentTime will be 0 for ticks at the start of the demo.  ParsingProgress, PlaybackFrames, PlaybackTicks, PlaybackTime will always be 0.");
+				Console.WriteLine("HeaderCorrupted event raised, TimeFixed event will be raised when time variables are repaired.");
 
 				if (HeaderCorrupted != null)
 				{
 					HeaderCorrupted(this, new HeaderParsedEventArgs(Header));
-				}				
+				}
 			}
 
 			if (HeaderParsed != null)
@@ -582,6 +588,9 @@ namespace DemoInfo
 
 			if (isConsecutive) {
 				_ticktime = gap * TickInterval;
+
+				if (TimeFixed != null)
+					TimeFixed(this, new TimeFixedEventArgs());
 			}
 		}
 
@@ -1449,6 +1458,7 @@ namespace DemoInfo
 			this.FlashNadeExploded = null;
 			this.HeaderParsed = null;
 			this.HeaderCorrupted = null;
+			this.TimeFixed = null;
 			this.MatchStarted = null;
 			this.NadeReachedTarget = null;
 			this.PlayerKilled = null;
