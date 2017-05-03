@@ -264,11 +264,6 @@ namespace DemoInfo
 		public bool IsHeaderCorrupted { get; private set; }
 
 		/// <summary>
-		/// Used to sample gap in ticks when header is corrupted
-		/// </summary>
-		internal List<int> TickGaps = new List<int>();
-
-		/// <summary>
 		/// Gets the participants of this game
 		/// </summary>
 		/// <value>The participants.</value>
@@ -458,6 +453,7 @@ namespace DemoInfo
 		/// How long a tick of the demo is in s^-1
 		/// </summary>
 		/// <value>The tick time.</value>
+		private List<int> tickGaps = new List<int>();
 		private float _ticktime;
 		public float TickTime {
 			get { return IsHeaderCorrupted ? _ticktime : this.Header.PlaybackTime / this.Header.PlaybackFrames; }
@@ -575,12 +571,12 @@ namespace DemoInfo
 		private void FixTickTime()
 		{
 			// at the beginning of demos the tickgap can be erratic, so make sure we have 10 consecutive that are the same
-			int gap = TickGaps[1] - TickGaps[0];
+			int gap = tickGaps[1] - tickGaps[0];
 			bool isConsecutive = true;
-			for (int i = 1; i < TickGaps.Count - 1; i++) {
-				if (TickGaps[i + 1] - TickGaps[i] != gap)
+			for (int i = 1; i < tickGaps.Count - 1; i++) {
+				if (tickGaps[i + 1] - tickGaps[i] != gap)
 				{
-					TickGaps.Clear();
+					tickGaps.Clear();
 					isConsecutive = false;
 					break;
 				}
@@ -603,11 +599,11 @@ namespace DemoInfo
 			if (Header == null)
 				throw new InvalidOperationException ("You need to call ParseHeader first before you call ParseToEnd or ParseNextTick!");
 
-			int consecutiveGaps = 10;
 			if (IsHeaderCorrupted && _ticktime == 0 && IngameTick > 20) {
-				if (TickGaps.Count < consecutiveGaps)
-					TickGaps.Add(IngameTick);
-				else if (TickGaps.Count == consecutiveGaps)	{
+				int consecutiveGaps = 10;
+				if (tickGaps.Count < consecutiveGaps)
+					tickGaps.Add(IngameTick);
+				else if (tickGaps.Count == consecutiveGaps)	{
 					FixTickTime();
 				}
 			}
