@@ -265,6 +265,7 @@ namespace DemoInfo
 		public Player Player { get; set; }
 		public Equipment Weapon { get; set; }
 
+	}
 
 
 	public class PlayerBindEventArgs : EventArgs
