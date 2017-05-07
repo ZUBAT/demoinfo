@@ -163,8 +163,6 @@ namespace DemoInfo
 	}
 	public class FlashEventArgs : NadeEventArgs
 	{
-		public Player[] FlashedPlayers { get; internal set; }
-
 		public FlashEventArgs () : base(EquipmentElement.Flash)
 		{
 
@@ -249,6 +247,13 @@ namespace DemoInfo
 		public Hitgroup Hitgroup { get; set; }
 	}
 
+	public class BlindEventArgs : EventArgs
+	{
+		public Player Player { get; set; }
+		public Player Attacker { get; set; }
+		public float FlashDuration { get; set; }
+	}
+
 	public class PickupWeaponEventArgs : EventArgs
 	{
 		public Player Player { get; set; }
@@ -259,7 +264,8 @@ namespace DemoInfo
 	{
 		public Player Player { get; set; }
 		public Equipment Weapon { get; set; }
-	}
+
+
 
 	public class PlayerBindEventArgs : EventArgs
 	{

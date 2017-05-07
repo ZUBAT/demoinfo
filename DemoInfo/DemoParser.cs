@@ -215,6 +215,11 @@ namespace DemoInfo
 		/// </summary>
 		public event EventHandler<PlayerHurtEventArgs> PlayerHurt;
 
+		/// Occurs when player is blinded by flashbang
+		/// Hint: The order of the blind event and FlashNadeExploded event is not always the same
+		/// </summary>
+		public event EventHandler<BlindEventArgs> Blind;
+
 		/// <summary>
 		/// Occurs when player picks up an item, including grenades and bomb
 		/// Hint: Raised on spawns and buys as well as picking up items.
@@ -429,15 +434,6 @@ namespace DemoInfo
 		/// Luckily these contain a map ID |--> Name.
 		/// </summary>
 		internal Dictionary<int, GameEventList.Descriptor> GEH_Descriptors = null;
-
-		/// <summary>
-		/// The blind players, so we can tell who was flashed by a flashbang. 
-		/// </summary>
-		internal List<Player> GEH_BlindPlayers = new List<Player>();
-
-		// These could be Dictionary<int, RecordedPropertyUpdate[]>, but I was too lazy to
-		// define that class. Also: It doesn't matter anyways, we always have to cast.
-
 
 		/// <summary>
 		/// The preprocessed baselines, useful to create entities fast
@@ -1305,6 +1301,12 @@ namespace DemoInfo
 		{
 			if (PlayerHurt != null)
 				PlayerHurt(this, hurt);
+		}
+
+		internal void RaiseBlind(BlindEventArgs blind)
+		{
+			if (Blind != null)
+				Blind(this, blind);
 		}
 
 		internal void RaisePlayerBind(PlayerBindEventArgs bind)
