@@ -1045,8 +1045,17 @@ namespace DemoInfo
 				playerEntity.FindProperty ("m_iAmmo." + i.ToString ().PadLeft (3, '0')).IntRecived += (sender, e) => {
 					p.AmmoLeft [iForTheMethod] = e.Value;
 
-					if (p.FlashHandle != null && p.FlashHandle.AmmoType == iForTheMethod && e.Value == 2) {
-						p.newWeapons.Enqueue(p.FlashHandle);
+					if (p.FlashHandle != null && p.FlashHandle.AmmoType == iForTheMethod) {
+						if (e.Value == 2) {
+							p.newWeapons.Enqueue(p.FlashHandle);
+							p.HasTwoFlashes = true;
+						} else if (p.HasTwoFlashes) {
+							DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+							dropweapon.Player = p;
+							dropweapon.Weapon = p.FlashHandle;
+							RaiseDropWeapon(dropweapon);
+							p.HasTwoFlashes = false;
+						}						
 					}
 				};
 			}
@@ -1453,6 +1462,7 @@ namespace DemoInfo
 
 		internal void RaiseDropWeapon(DropWeaponEventArgs args)
 		{
+			Console.WriteLine("drop: {0}, player: {1}, tick: {2}", args.Weapon.Weapon.ToString(), args.Player.Name, IngameTick);
 			if (DropWeapon != null)
 				DropWeapon(this, args);
 		}
