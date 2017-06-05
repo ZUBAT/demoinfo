@@ -111,6 +111,10 @@ namespace DemoInfo
 		/// also note that the killed player is still alive when this is killed
 		/// </summary>
 		public event EventHandler<PlayerKilledEventArgs> PlayerKilled;
+		/// <summary>
+		/// Raised when Kills field of AdditionaInformations is updated.  Useful for when packets get dropped.
+		/// </summary>
+		public event EventHandler<PlayerKillInfoEventArgs> PlayerKillInfo;
 
 		/// <summary>
 		/// Occurs when a player select a team
@@ -1304,6 +1308,12 @@ namespace DemoInfo
 		{
 			if (PlayerKilled != null)
 				PlayerKilled(this, kill);
+		}
+
+		internal void RaisePlayerKillInfo()
+		{
+			if (PlayerKillInfo != null)
+				PlayerKillInfo(this, new PlayerKillInfoEventArgs());
 		}
 
 		internal void RaisePlayerHurt(PlayerHurtEventArgs hurt)
