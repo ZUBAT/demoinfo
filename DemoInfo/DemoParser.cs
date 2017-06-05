@@ -890,9 +890,13 @@ namespace DemoInfo
 
 					playerResources.Entity.FindProperty("m_iKills."+iString).IntRecived += (sender, e) => {
 						additionalInformations[iForTheMethod].Kills = e.Value;
-						PlayerKillInfoEventArgs eventArgs = new PlayerKillInfoEventArgs();
-						eventArgs.Player = Players[iForTheMethod];
-						RaisePlayerKillInfo(eventArgs);
+						
+						if (Players.Count > 0)
+						{
+							PlayerKillInfoEventArgs eventArgs = new PlayerKillInfoEventArgs();
+							eventArgs.Player = Players.Values.First(p => p.EntityID == iForTheMethod);
+							RaisePlayerKillInfo(eventArgs);
+						}
 					};
 
 					playerResources.Entity.FindProperty("m_iDeaths."+iString).IntRecived += (sender, e) => {
