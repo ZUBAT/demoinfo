@@ -113,6 +113,7 @@ namespace DemoInfo
 
 	public class PlayerKillInfoEventArgs : EventArgs
 	{
+		public Player Player { get; internal set; }
 	}
 
 	public class BotTakeOverEventArgs : EventArgs

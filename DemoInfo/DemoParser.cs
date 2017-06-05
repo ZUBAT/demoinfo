@@ -890,6 +890,9 @@ namespace DemoInfo
 
 					playerResources.Entity.FindProperty("m_iKills."+iString).IntRecived += (sender, e) => {
 						additionalInformations[iForTheMethod].Kills = e.Value;
+						PlayerKillInfoEventArgs eventArgs = new PlayerKillInfoEventArgs();
+						eventArgs.Player = Players[iForTheMethod];
+						RaisePlayerKillInfo(eventArgs);
 					};
 
 					playerResources.Entity.FindProperty("m_iDeaths."+iString).IntRecived += (sender, e) => {
@@ -1310,10 +1313,10 @@ namespace DemoInfo
 				PlayerKilled(this, kill);
 		}
 
-		internal void RaisePlayerKillInfo()
+		internal void RaisePlayerKillInfo(PlayerKillInfoEventArgs args)
 		{
 			if (PlayerKillInfo != null)
-				PlayerKillInfo(this, new PlayerKillInfoEventArgs());
+				PlayerKillInfo(this, args);
 		}
 
 		internal void RaisePlayerHurt(PlayerHurtEventArgs hurt)
