@@ -894,7 +894,7 @@ namespace DemoInfo
 						if (Players.Count > 0)
 						{
 							PlayerKillInfoEventArgs eventArgs = new PlayerKillInfoEventArgs();
-							eventArgs.Player = Players.Values.First(p => p.EntityID == iForTheMethod);
+							eventArgs.Player = Players.Values.FirstOrDefault(p => p.EntityID == iForTheMethod);
 							eventArgs.Kills = e.Value;
 							RaisePlayerKillInfo(eventArgs);
 						}

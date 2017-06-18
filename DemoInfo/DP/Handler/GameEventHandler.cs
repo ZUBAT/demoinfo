@@ -78,7 +78,6 @@ namespace DemoInfo.DP.Handler
 					Winner = t,
 					Message = (string)data["message"],
 				};
-
 				parser.RaiseRoundEnd (roundEnd);
 			}
 
@@ -183,11 +182,11 @@ namespace DemoInfo.DP.Handler
 				#region Nades
 			case "player_blind":
 				data = MapData(eventDescriptor, rawEvent);
-				var blindPlayer = parser.Players[(int)data["userid"]];
-				if (blindPlayer.Team != Team.Spectate) {
+				var blindPlayer = parser.Players.ContainsKey ((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
+				if (blindPlayer != null && blindPlayer.Team != Team.Spectate) {
 					BlindEventArgs blind = new BlindEventArgs();
 					blind.Player = blindPlayer;
-					blind.Attacker = parser.Players[(int)data["attacker"]];
+					blind.Attacker = parser.Players.ContainsKey((int)data["attacker"]) ? parser.Players[(int)data["attacker"]] : null; ;
 					blind.FlashDuration = (float)data["blind_duration"];
 
 					parser.RaiseBlind(blind);
