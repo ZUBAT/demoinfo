@@ -257,7 +257,7 @@ namespace DemoInfo
 	{
 		public Player Player { get; set; }
 		public Player Attacker { get; set; }
-		public float FlashDuration { get; set; }
+		public float? FlashDuration { get; set; }
 	}
 
 	public class PickupWeaponEventArgs : EventArgs
