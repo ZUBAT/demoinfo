@@ -186,9 +186,12 @@ namespace DemoInfo.DP.Handler
 				if (blindPlayer != null && blindPlayer.Team != Team.Spectate) {
 					BlindEventArgs blind = new BlindEventArgs();
 					blind.Player = blindPlayer;
-					blind.Attacker = parser.Players.ContainsKey((int)data["attacker"]) ? parser.Players[(int)data["attacker"]] : null; ;
-					blind.FlashDuration = (float)data["blind_duration"];
-
+					if (data.ContainsKey("attacker")) {
+						blind.Attacker = parser.Players.ContainsKey((int)data["attacker"]) ? parser.Players[(int)data["attacker"]] : null;
+					}
+					if (data.ContainsKey("blind_duration")) {
+						blind.FlashDuration = (float)data["blind_duration"];
+					}					
 					parser.RaiseBlind(blind);
 				}
 
