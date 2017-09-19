@@ -75,6 +75,7 @@
     <Compile Include="DP\FastNetmessages\RankUpdate.cs" />
     <Compile Include="DP\FastNetmessages\SayText.cs" />
     <Compile Include="DP\FastNetmessages\SayText2.cs" />
+    <Compile Include="DP\FastNetmessages\ServerInfo.cs" />
     <Compile Include="DP\FastNetmessages\ServerRankUpdate.cs" />
     <Compile Include="DP\FastNetmessages\UserMessage.cs" />
     <Compile Include="DP\Handler\GameEventHandler.cs" />
