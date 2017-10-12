@@ -775,7 +775,6 @@ namespace DemoInfo
 		{
 			SendTableParser.FindByName("CCSTeam")
 				.OnNewEntity += (object sender, EntityCreatedEventArgs e) => {
-
 				string team = null;
 				string teamName = null;
 				string teamFlag = null;
@@ -816,6 +815,10 @@ namespace DemoInfo
 						CTClanName = teamName;
 						e.Entity.FindProperty("m_scoreTotal").IntRecived += (xx, update) => { 
 							CTScore = update.Value;
+							ScoreUpdatedEventArgs scoreUpdated = new ScoreUpdatedEventArgs();
+							scoreUpdated.Team = Team.CounterTerrorist;
+							scoreUpdated.Score = CTScore;
+							RaiseScoreUpdated(scoreUpdated);
 						};
 
 						if(teamID != -1)
@@ -832,6 +835,10 @@ namespace DemoInfo
 						TClanName = teamName;
 						e.Entity.FindProperty("m_scoreTotal").IntRecived += (xx, update) => { 
 							TScore = update.Value;
+							ScoreUpdatedEventArgs scoreUpdated = new ScoreUpdatedEventArgs();
+							scoreUpdated.Team = Team.Terrorist;
+							scoreUpdated.Score = TScore;
+							RaiseScoreUpdated(scoreUpdated);
 						};
 
 						if(teamID != -1)
@@ -867,11 +874,6 @@ namespace DemoInfo
 						TClanName = recivedClanName.Value;
 					}
 				};
-
-				ScoreUpdatedEventArgs scoreUpdated = new ScoreUpdatedEventArgs();
-				scoreUpdated.Team = (Team)teamID;
-				scoreUpdated.Score = score;
-				RaiseScoreUpdated(scoreUpdated);
 			};
 		}
 
