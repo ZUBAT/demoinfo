@@ -87,6 +87,11 @@ namespace DemoInfo
 		public event EventHandler<RoundOfficiallyEndedEventArgs> RoundOfficiallyEnd;
 
 		/// <summary>
+		/// Occurs when score changes
+		/// </summary>
+		public event EventHandler<ScoreUpdatedEventArgs> ScoreUpdated;
+
+		/// <summary>
 		/// Occurs on round end with the MVP
 		/// </summary>
 		public event EventHandler<RoundMVPEventArgs> RoundMVP;
@@ -862,6 +867,11 @@ namespace DemoInfo
 						TClanName = recivedClanName.Value;
 					}
 				};
+
+				ScoreUpdatedEventArgs scoreUpdated = new ScoreUpdatedEventArgs();
+				scoreUpdated.Team = (Team)teamID;
+				scoreUpdated.Score = score;
+				RaiseScoreUpdated(scoreUpdated);
 			};
 		}
 
@@ -1297,6 +1307,12 @@ namespace DemoInfo
 			if (RoundOfficiallyEnd != null)
 				RoundOfficiallyEnd(this, new RoundOfficiallyEndedEventArgs());
 
+		}
+
+		internal void RaiseScoreUpdated(ScoreUpdatedEventArgs a)
+		{
+			if (ScoreUpdated != null)
+				ScoreUpdated(this, a);
 		}
 
 		internal void RaiseRoundMVP(RoundMVPEventArgs re)

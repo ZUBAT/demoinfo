@@ -50,6 +50,12 @@ namespace DemoInfo
 	{
 	}
 
+	public class ScoreUpdatedEventArgs : EventArgs
+	{
+		public Team Team;
+		public int Score;
+	}
+
 	public class RoundMVPEventArgs : EventArgs
 	{
 		public Player Player { get; set; }
