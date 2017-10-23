@@ -117,6 +117,13 @@ namespace DemoInfo
 		public int Kills { get; internal set; }
 	}
 
+	public class PlayerUpdateAttributeEventArgs : EventArgs
+	{
+		public Player Player { get; internal set; }
+		public string Attribute { get; internal set; }
+		public int Value { get; internal set; }
+	}
+
 	public class BotTakeOverEventArgs : EventArgs
 	{
 		public Player Taker { get; internal set; }
