@@ -984,13 +984,17 @@ namespace DemoInfo
 				update.Player = p;
 				update.Attribute = "HP";
 				update.Value = e.Value;
+
+				RaisePlayerUpdateAttribute(update);
 			};
 			playerEntity.FindProperty("m_ArmorValue").IntRecived += (sender, e) => {
 				p.Armor = e.Value;
 				PlayerUpdateAttributeEventArgs update = new PlayerUpdateAttributeEventArgs();
 				update.Player = p;
 				update.Attribute = "Armor";
-				update.Value = e.Value;			
+				update.Value = e.Value;
+
+				RaisePlayerUpdateAttribute(update);
 			};
 			playerEntity.FindProperty("m_bHasDefuser").IntRecived += (sender, e) => {
 				p.HasDefuseKit = e.Value == 1;
@@ -998,6 +1002,8 @@ namespace DemoInfo
 				update.Player = p;
 				update.Attribute = "HasDefuseKit";
 				update.Value = e.Value;
+
+				RaisePlayerUpdateAttribute(update);
 			};
 			playerEntity.FindProperty("m_bHasHelmet").IntRecived += (sender, e) => {
 				p.HasHelmet = e.Value == 1;
@@ -1005,6 +1011,8 @@ namespace DemoInfo
 				update.Player = p;
 				update.Attribute = "HasHelmet";
 				update.Value = e.Value;
+
+				RaisePlayerUpdateAttribute(update);
 			};
 			playerEntity.FindProperty("localdata.m_Local.m_bDucking").IntRecived += (sender, e) =>  p.IsDucking = e.Value == 1;
 			playerEntity.FindProperty("m_iAccount").IntRecived += (sender, e) => {
@@ -1013,6 +1021,8 @@ namespace DemoInfo
 				update.Player = p;
 				update.Attribute = "Money";
 				update.Value = e.Value;
+
+				RaisePlayerUpdateAttribute(update);
 			};
 			playerEntity.FindProperty("m_angEyeAngles[1]").FloatRecived += (sender, e) => p.ViewDirectionX = e.Value;
 			playerEntity.FindProperty("m_angEyeAngles[0]").FloatRecived += (sender, e) => p.ViewDirectionY = e.Value;
