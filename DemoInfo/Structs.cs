@@ -118,7 +118,12 @@ namespace DemoInfo
 		{
 			return new Vector(X,Y,Z);
 		}
-			
+
+		public double Distance(Vector v)
+		{
+			return Math.Sqrt(Math.Pow(this.X - v.X, 2) + Math.Pow(this.Y - v.Y, 2) + Math.Pow(this.Z - v.Z, 2));
+		}
+
 		public static Vector operator + (Vector a, Vector b)
 		{
 			return new Vector() {X = a.X + b.X, Y = a.Y + b.Y, Z = a.Z + b.Z };
@@ -135,8 +140,43 @@ namespace DemoInfo
         }
     }
 
+	internal class GrenadeProjectile
+	{
+		internal Vector Origin;
+		internal int CellX;
+		internal int CellY;
+		internal int CellZ;
+		internal Player ThrownBy;
+		internal Vector Position
+		{
+			get {
+				UpdatePosition();
+				return _position;
+			}
+			set { _position = value; }
+		}
+
+		//https://developer.valvesoftware.com/wiki/MAX_COORD_INTEGER
+		private const int MAX_COORD_INTEGER = 16384;
+		private int cellWidth;
+		private Vector _position;
+
+		public GrenadeProjectile(int cellWidth)
+		{
+			this.cellWidth = cellWidth;
+		}
+
+		private void UpdatePosition()
+		{
+			_position = new Vector(
+				CellX * cellWidth - MAX_COORD_INTEGER + Origin.X,
+				CellY * cellWidth - MAX_COORD_INTEGER + Origin.Y,
+				CellZ * cellWidth - MAX_COORD_INTEGER + Origin.Z);
+		}
+	}
+
 	/// <summary>
-	/// And Angle in the Source-Engine. Looks pretty much like a vector. 
+	/// And Angle in the Source-Engine. Looks pretty much like a vector.
 	/// </summary>
 	class QAngle
     {
