@@ -128,7 +128,6 @@ namespace DemoInfo.DP.Handler
 				WeaponFiredEventArgs fire = new WeaponFiredEventArgs ();
 				fire.Shooter = parser.Players.ContainsKey ((int)data ["userid"]) ? parser.Players [(int)data ["userid"]] : null;
 				fire.Weapon = new Equipment ((string)data ["weapon"]);
-
 				if (fire.Shooter != null && fire.Shooter.ActiveWeapon != null && fire.Weapon.Class != EquipmentClass.Grenade) {
 					fire.Weapon = fire.Shooter.ActiveWeapon;
 				}
@@ -234,13 +233,26 @@ namespace DemoInfo.DP.Handler
 				parser.RaiseSmokeEnd(FillNadeEvent<SmokeEventArgs>(MapData(eventDescriptor, rawEvent), parser));
 				break;
 			case "inferno_startburn":
-				parser.RaiseFireStart(FillNadeEvent<FireEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var fireData = MapData(eventDescriptor, rawEvent);
+				var fireArgs = FillNadeEvent<FireEventArgs>(fireData, parser);
+				parser.GEH_StartBurns.Add(new Tuple<FireEventArgs, int> (fireArgs, (int)fireData["entityid"]));
 				break;
 			case "inferno_expire":
-				parser.RaiseFireEnd(FillNadeEvent<FireEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var fireEndData = MapData(eventDescriptor, rawEvent);
+				var fireEndArgs = FillNadeEvent<FireEventArgs>(fireEndData, parser);
+				int entityID = (int)fireEndData["entityid"];
+				const int maxFireDuration = 8; //based on a lot of demos, but possible it could change in future
+				if (parser.GEH_BurnPlayer.ContainsKey(entityID)) {
+					// There's a chance that this grenade has no inferno_startburn
+					//but that an old one with the same entityID never had an associated inferno_expire
+					if (parser.CurrentTime - parser.GEH_BurnPlayer[entityID].Item2 < maxFireDuration)
+						fireEndArgs.ThrownBy = parser.GEH_BurnPlayer[entityID].Item1;
+					parser.GEH_BurnPlayer.Remove(entityID);
+				}
+				parser.RaiseFireEnd(fireEndArgs);
 				break;
 				#endregion
-			
+
 			case "player_connect":
 				data = MapData (eventDescriptor, rawEvent);
 
@@ -377,6 +389,34 @@ namespace DemoInfo.DP.Handler
 				break;
 			}
 		}
+
+		/*private static void SetMolotovThrownBy(FireEventArgs fireArgs, DemoParser parser)
+		{
+			// set fireArgs.ThrownBy to the player who threw the closest grenade that was updated last tick
+			var mols = parser.GEH_MolotovProjectiles;
+			System.Diagnostics.Debug.Assert(mols.Count > 0);
+			Console.WriteLine(mols.Count);
+			if (mols.Count == 1)
+			{
+				fireArgs.ThrownBy = mols.Values.First().ThrownBy;
+				System.Diagnostics.Debug.Assert(fireArgs.Position.Distance(mols.Values.First().Position) < 100);
+				Console.WriteLine(fireArgs.Position - mols.Values.First().Position);
+				if (fireArgs.Position.Distance(mols.Values.First().Position) > 50)
+					Console.WriteLine("");
+				Console.WriteLine(fireArgs.Position.Distance(mols.Values.First().Position));
+			}
+			else
+			{
+				var minDistProj = mols.Aggregate(
+					(a, b) => fireArgs.Position.Distance(a.Value.Position) <
+						fireArgs.Position.Distance(b.Value.Position) ? a : b).Value;
+
+				fireArgs.ThrownBy = minDistProj.ThrownBy;
+				Console.WriteLine(fireArgs.Position - minDistProj.Position);
+				Console.WriteLine(fireArgs.Position.Distance(minDistProj.Position));
+				System.Diagnostics.Debug.Assert(fireArgs.Position.Distance(minDistProj.Position) < 100);
+			}
+		}*/
 
 		private static T FillNadeEvent<T>(Dictionary<string, object> data, DemoParser parser) where T : NadeEventArgs, new()
 		{
