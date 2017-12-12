@@ -150,28 +150,17 @@ namespace DemoInfo
 		internal Vector Position
 		{
 			get {
-				UpdatePosition();
-				return _position;
+				return parser.CellsToCoords(CellX, CellY, CellZ) + Origin;
 			}
 			set { _position = value; }
 		}
 
-		//https://developer.valvesoftware.com/wiki/MAX_COORD_INTEGER
-		private const int MAX_COORD_INTEGER = 16384;
-		private int cellWidth;
+		private DemoParser parser;
 		private Vector _position;
 
-		public GrenadeProjectile(int cellWidth)
+		public GrenadeProjectile(DemoParser parser)
 		{
-			this.cellWidth = cellWidth;
-		}
-
-		private void UpdatePosition()
-		{
-			_position = new Vector(
-				CellX * cellWidth - MAX_COORD_INTEGER + Origin.X,
-				CellY * cellWidth - MAX_COORD_INTEGER + Origin.Y,
-				CellZ * cellWidth - MAX_COORD_INTEGER + Origin.Z);
+			this.parser = parser;
 		}
 	}
 

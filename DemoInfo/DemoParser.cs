@@ -27,6 +27,7 @@ namespace DemoInfo
 		const int MAXPLAYERS = 64;
 		const int MAXWEAPONS = 64;
 
+		private const int MAX_COORD_INTEGER = 16384;
 		private int cellWidth;
 
 
@@ -426,6 +427,7 @@ namespace DemoInfo
 		internal Dictionary<int, GrenadeProjectile> GEH_MolotovProjectiles = new Dictionary<int, GrenadeProjectile>();
 		internal List<Tuple<FireEventArgs, int>> GEH_StartBurns = new List<Tuple<FireEventArgs, int>>();
 		internal Dictionary<int, Tuple<Player, float>> GEH_BurnPlayer = new Dictionary<int, Tuple<Player, float>>();
+		internal List<Tuple<GrenadeProjectile, float>> GEH_FailedBurns = new List<Tuple<GrenadeProjectile, float>>();
 
 		/// <summary>
 		/// The preprocessed baselines, useful to create entities fast
@@ -1119,7 +1121,7 @@ namespace DemoInfo
 			var molProjectile = SendTableParser.FindByName("CMolotovProjectile");
 
 			molProjectile.OnNewEntity += (s, projEntity) => {
-				GEH_MolotovProjectiles[projEntity.Entity.ID] = new GrenadeProjectile(cellWidth);
+				GEH_MolotovProjectiles[projEntity.Entity.ID] = new GrenadeProjectile(this);
 
 				projEntity.Entity.FindProperty("m_vecOrigin").VectorRecived += (s2, vector) => {
 					GEH_MolotovProjectiles[projEntity.Entity.ID].Origin = vector.Value;
@@ -1173,13 +1175,14 @@ namespace DemoInfo
 
 				//Sometimes projectiles can be destroyed without a detonate,
 				//either because the molotov never collided or inferno_startfire event was dropped
-				if (minDistFire != null)
-				{
+				if (minDistFire != null) {
 					minDistFire.Item1.ThrownBy = proj.ThrownBy;
 					RaiseFireStart(minDistFire.Item1);
 					fires.Remove(minDistFire);
 
 					GEH_BurnPlayer[minDistFire.Item2] = new Tuple<Player, float> (proj.ThrownBy, CurrentTime);
+				}else {
+					GEH_FailedBurns.Add(new Tuple<GrenadeProjectile, float>(proj, CurrentTime));
 				}
 				//System.Diagnostics.Trace.Assert(minDistFire == null || minDistFire.Position.Distance(proj.Position) < 100);
 				/*if (minDistFire != null && minDistFire.Item1.Position.Distance(proj.Position) > 150)
@@ -1199,6 +1202,14 @@ namespace DemoInfo
 					cellWidth = 1 << bitnum.Value;
 				};
 			};
+		}
+
+		internal Vector CellsToCoords(int cellX, int cellY, int cellZ)
+		{
+			return new Vector(
+				cellX * cellWidth - MAX_COORD_INTEGER,
+				cellY * cellWidth - MAX_COORD_INTEGER,
+				cellZ * cellWidth - MAX_COORD_INTEGER);
 		}
 
 		#if SAVE_PROP_VALUES

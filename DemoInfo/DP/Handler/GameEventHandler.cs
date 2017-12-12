@@ -248,6 +248,29 @@ namespace DemoInfo.DP.Handler
 					if (parser.CurrentTime - parser.GEH_BurnPlayer[entityID].Item2 < maxFireDuration)
 						fireEndArgs.ThrownBy = parser.GEH_BurnPlayer[entityID].Item1;
 					parser.GEH_BurnPlayer.Remove(entityID);
+				} else {
+					const int distTolerance = 120;
+					float minDist = 99999;
+					int? minDistProjIdx = null;
+					var fails = parser.GEH_FailedBurns;
+					List<int> idxToRemove = new List<int>();
+
+					for (int i=0; i < fails.Count; i++) {
+						if (parser.CurrentTime - fails[i].Item2 > maxFireDuration)
+							idxToRemove.Add(i);
+						else {
+							double dist = fireEndArgs.Position.Distance(fails[i].Item1.Position);
+							if (dist < minDist && dist < distTolerance)
+								minDistProjIdx = i;
+						}
+					}
+
+					if (minDistProjIdx != null) {
+						idxToRemove.Add((int)minDistProjIdx);
+						fireEndArgs.ThrownBy = fails[(int)minDistProjIdx].Item1.ThrownBy;
+					}
+					foreach (int i in idxToRemove)
+						fails.RemoveAt(i);
 				}
 				parser.RaiseFireEnd(fireEndArgs);
 				break;
@@ -417,7 +440,6 @@ namespace DemoInfo.DP.Handler
 				System.Diagnostics.Debug.Assert(fireArgs.Position.Distance(minDistProj.Position) < 100);
 			}
 		}*/
-
 		private static T FillNadeEvent<T>(Dictionary<string, object> data, DemoParser parser) where T : NadeEventArgs, new()
 		{
 			var nade = new T();
