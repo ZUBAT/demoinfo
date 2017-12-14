@@ -147,6 +147,7 @@ namespace DemoInfo
 		internal int CellY;
 		internal int CellZ;
 		internal Player ThrownBy;
+		internal EquipmentElement NadeType;
 		internal Vector Position
 		{
 			get {
@@ -164,6 +165,163 @@ namespace DemoInfo
 		}
 	}
 
+	internal class GrenadeHelper
+	{
+		DemoParser parser;
+		Dictionary<int, GrenadeProjectile> projectiles = new Dictionary<int, GrenadeProjectile>();
+		Dictionary<EquipmentElement, List<Tuple<NadeEventArgs, int>>> startDetonates = new Dictionary<EquipmentElement, List<Tuple<NadeEventArgs, int>>>();
+		Dictionary<int, Tuple<Player, float>> detonatePlayer = new Dictionary<int, Tuple<Player, float>>();
+		Dictionary<EquipmentElement, List<Tuple<GrenadeProjectile, float>>> failedDetonates = new Dictionary<EquipmentElement, List<Tuple<GrenadeProjectile, float>>>();
+
+		internal GrenadeHelper(DemoParser parser)
+		{
+			this.parser = parser;
+
+			startDetonates[EquipmentElement.Molotov] = new List<Tuple<NadeEventArgs, int>>();
+			startDetonates[EquipmentElement.Incendiary] = new List<Tuple<NadeEventArgs, int>>();
+
+			failedDetonates[EquipmentElement.Molotov] = new List<Tuple<GrenadeProjectile, float>>();
+			failedDetonates[EquipmentElement.Incendiary] = new List<Tuple<GrenadeProjectile, float>>();
+		}
+
+		internal void HandleGrenadeProjectiles(bool handleFires)
+		{
+			Console.WriteLine(handleFires);
+			if (!handleFires)
+				return;
+
+			var molProjectile = parser.SendTableParser.FindByName("CMolotovProjectile");
+
+			molProjectile.OnNewEntity += (s, projEntity) =>
+			{
+				var proj = new GrenadeProjectile(parser);
+				projectiles[projEntity.Entity.ID] = proj;
+				proj.NadeType = EquipmentElement.Incendiary;
+
+				projEntity.Entity.FindProperty("m_vecOrigin").VectorRecived += (s2, vector) =>
+				{
+					proj.Origin = vector.Value;
+				};
+
+				projEntity.Entity.FindProperty("m_cellX").IntRecived += (s2, cell) =>
+				{
+					proj.CellX = cell.Value;
+				};
+				projEntity.Entity.FindProperty("m_cellY").IntRecived += (s2, cell) =>
+				{
+					proj.CellY = cell.Value;
+				};
+				projEntity.Entity.FindProperty("m_cellZ").IntRecived += (s2, cell) =>
+				{
+					proj.CellZ = cell.Value;
+				};
+
+				projEntity.Entity.FindProperty("m_hThrower").IntRecived += (s2, handleID) =>
+				{
+					int playerEntityID = handleID.Value & DemoParser.INDEX_MASK;
+					if (parser.PlayerInformations[playerEntityID - 1] == null)
+						return;
+
+					proj.ThrownBy = parser.PlayerInformations[playerEntityID - 1];
+					proj.Position = parser.PlayerInformations[playerEntityID - 1].Position.Copy();
+				};
+			};
+
+			molProjectile.OnDestroyEntity += (s, projEntity) =>
+			{
+				var proj = projectiles[projEntity.Entity.ID];
+				Tuple<NadeEventArgs, int> detonateStart = GetStartDetonate(proj);
+
+				//Sometimes projectiles can be destroyed without a detonate,
+				//either because the molotov never collided or inferno_startfire event was dropped
+				if (detonateStart != null)
+				{
+					detonateStart.Item1.ThrownBy = proj.ThrownBy;
+					parser.RaiseFireStart((FireEventArgs)detonateStart.Item1);
+					startDetonates[detonateStart.Item1.NadeType].Remove(detonateStart);
+
+					detonatePlayer[detonateStart.Item2] = new Tuple<Player, float>(proj.ThrownBy, parser.CurrentTime);
+				}
+				else
+				{
+					failedDetonates[proj.NadeType].Add(new Tuple<GrenadeProjectile, float>(proj, parser.CurrentTime));
+				}
+			};
+		}
+
+		Tuple<NadeEventArgs, int> GetStartDetonate(GrenadeProjectile proj)
+		{
+			var detonates = startDetonates[proj.NadeType];
+			Tuple<NadeEventArgs, int> minDistDetonate = null;
+
+			if (detonates.Count == 1)
+				minDistDetonate = detonates[0];
+			else if (detonates.Count > 1)
+			{
+				minDistDetonate = detonates.Aggregate(
+					(a, b) => proj.Position.Distance(a.Item1.Position) <
+					proj.Position.Distance(b.Item1.Position) ? a : b);
+			}
+
+			return minDistDetonate;
+		}
+
+		internal void AddStartDetonate(NadeEventArgs eventArgs, int entityID)
+		{
+			startDetonates[eventArgs.NadeType].Add(new Tuple<NadeEventArgs, int>(eventArgs, entityID));
+		}
+
+		internal void SetDetonateEndThrownBy(NadeEventArgs endArgs, int detonateEntityID)
+		{
+			int maxDetDuration;
+			switch (endArgs.NadeType) {
+				case EquipmentElement.Incendiary:
+					maxDetDuration = 10;
+					break;
+				default:
+					throw new System.ComponentModel.InvalidEnumArgumentException("Unrecognized NadeType");
+			}
+			if (detonatePlayer.ContainsKey(detonateEntityID))
+			{
+				// There's a chance that this grenade has no inferno_startburn
+				//but that an old one with the same entityID never had an associated inferno_expire
+				if (parser.CurrentTime - detonatePlayer[detonateEntityID].Item2 < maxDetDuration)
+					endArgs.ThrownBy = detonatePlayer[detonateEntityID].Item1;
+				detonatePlayer.Remove(detonateEntityID);
+			}
+			else
+			{
+				const int distTolerance = 200;
+				float minDist = 99999;
+				int? minDistProjIdx = null;
+				var fails = failedDetonates[endArgs.NadeType];
+				List<int> idxToRemove = new List<int>();
+
+				for (int i = 0; i < fails.Count; i++)
+				{
+					if (parser.CurrentTime - fails[i].Item2 > maxDetDuration)
+						idxToRemove.Add(i);
+					else
+					{
+						double dist = endArgs.Position.Distance(fails[i].Item1.Position);
+						if (dist < minDist && dist < distTolerance)
+							minDistProjIdx = i;
+					}
+				}
+
+				if (minDistProjIdx != null)
+				{
+					idxToRemove.Add((int)minDistProjIdx);
+					endArgs.ThrownBy = fails[(int)minDistProjIdx].Item1.ThrownBy;
+				}
+
+				idxToRemove = idxToRemove.OrderByDescending(x => x).ToList();
+				foreach (int i in idxToRemove)
+					fails.RemoveAt(i);
+			}
+
+		}
+	}
 	/// <summary>
 	/// And Angle in the Source-Engine. Looks pretty much like a vector.
 	/// </summary>

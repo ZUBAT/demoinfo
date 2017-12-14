@@ -422,12 +422,9 @@ namespace DemoInfo
 		// define that class. Also: It doesn't matter anyways, we always have to cast.
 
 		/// <summary>
-		/// For tracking molotovs and incendiaries so that thrower id can be interpolated
+		/// For tracking molotovs and as a backup for other grenades so that thrower id can be interpolated
 		/// </summary>
-		internal Dictionary<int, GrenadeProjectile> GEH_MolotovProjectiles = new Dictionary<int, GrenadeProjectile>();
-		internal List<Tuple<FireEventArgs, int>> GEH_StartBurns = new List<Tuple<FireEventArgs, int>>();
-		internal Dictionary<int, Tuple<Player, float>> GEH_BurnPlayer = new Dictionary<int, Tuple<Player, float>>();
-		internal List<Tuple<GrenadeProjectile, float>> GEH_FailedBurns = new List<Tuple<GrenadeProjectile, float>>();
+		internal GrenadeHelper GrenHelper;
 
 		/// <summary>
 		/// The preprocessed baselines, useful to create entities fast
@@ -503,6 +500,8 @@ namespace DemoInfo
 			for (int i = 0; i < MAXPLAYERS; i++) {
 				additionalInformations [i] = new AdditionalPlayerInformation ();
 			}
+
+			GrenHelper = new GrenadeHelper(this);
 		}
 
 
@@ -690,7 +689,7 @@ namespace DemoInfo
 
 			HandleWeapons ();
 
-			HandleGrenadeProjectiles();
+			GrenHelper.HandleGrenadeProjectiles(FireNadeStarted != null || FireNadeEnded != null);
 
 			SetCellWidth();
 		}
@@ -1109,90 +1108,6 @@ namespace DemoInfo
 				};
 			};
 
-		}
-
-		//public float matchedMols = 0;
-		//public float unmatchedMols = 0;
-		private void HandleGrenadeProjectiles()
-		{
-			if (FireNadeStarted == null && FireNadeEnded == null)
-				return;
-
-			var molProjectile = SendTableParser.FindByName("CMolotovProjectile");
-
-			molProjectile.OnNewEntity += (s, projEntity) => {
-				GEH_MolotovProjectiles[projEntity.Entity.ID] = new GrenadeProjectile(this);
-
-				projEntity.Entity.FindProperty("m_vecOrigin").VectorRecived += (s2, vector) => {
-					GEH_MolotovProjectiles[projEntity.Entity.ID].Origin = vector.Value;
-				};
-
-				projEntity.Entity.FindProperty("m_cellX").IntRecived += (s2, cell) => {
-					GEH_MolotovProjectiles[projEntity.Entity.ID].CellX = cell.Value;
-				};
-				projEntity.Entity.FindProperty("m_cellY").IntRecived += (s2, cell) => {
-					GEH_MolotovProjectiles[projEntity.Entity.ID].CellY = cell.Value;
-				};
-				projEntity.Entity.FindProperty("m_cellZ").IntRecived += (s2, cell) => {
-					GEH_MolotovProjectiles[projEntity.Entity.ID].CellZ = cell.Value;
-				};
-
-				projEntity.Entity.FindProperty("m_hThrower").IntRecived += (s2, handleID) => {
-					int playerEntityID = handleID.Value & INDEX_MASK;
-					if (PlayerInformations[playerEntityID - 1] == null)
-						return;
-
-					GEH_MolotovProjectiles[projEntity.Entity.ID].ThrownBy = PlayerInformations[playerEntityID - 1];
-					GEH_MolotovProjectiles[projEntity.Entity.ID].Position = PlayerInformations[playerEntityID - 1].Position.Copy();
-				};
-			};
-
-			molProjectile.OnDestroyEntity += (s, projEntity) => {
-				var proj = GEH_MolotovProjectiles[projEntity.Entity.ID];
-				GEH_MolotovProjectiles.Remove(projEntity.Entity.ID);
-
-				var fires = GEH_StartBurns;
-				Tuple<FireEventArgs, int> minDistFire = null;
-
-				if (fires.Count == 1) {
-					/*if (CurrentTick != fires[0].Item2)
-						fires.RemoveAt(0);
-					else*/
-					minDistFire = fires[0];
-				}else if (fires.Count > 1) {
-					/*var firesToRemove = new List<int>();
-					for (int i=0; i < fires.Count; i++) {
-						if (CurrentTick != fires[i].Item2)
-							firesToRemove.Add(i);
-					}
-					foreach (int idx in firesToRemove)
-						fires.RemoveAt(idx);*/
-
-					minDistFire = fires.Aggregate(
-						(a, b) => proj.Position.Distance(a.Item1.Position) <
-							proj.Position.Distance(b.Item1.Position) ? a : b);
-				}
-
-				//Sometimes projectiles can be destroyed without a detonate,
-				//either because the molotov never collided or inferno_startfire event was dropped
-				if (minDistFire != null) {
-					minDistFire.Item1.ThrownBy = proj.ThrownBy;
-					RaiseFireStart(minDistFire.Item1);
-					fires.Remove(minDistFire);
-
-					GEH_BurnPlayer[minDistFire.Item2] = new Tuple<Player, float> (proj.ThrownBy, CurrentTime);
-				}else {
-					GEH_FailedBurns.Add(new Tuple<GrenadeProjectile, float>(proj, CurrentTime));
-				}
-				//System.Diagnostics.Trace.Assert(minDistFire == null || minDistFire.Position.Distance(proj.Position) < 100);
-				/*if (minDistFire != null && minDistFire.Item1.Position.Distance(proj.Position) > 150)
-					Console.WriteLine("");
-
-				if (minDistFire == null)
-					unmatchedMols += 1;
-				else
-					matchedMols += 1;*/
-			};
 		}
 
 		private void SetCellWidth()
