@@ -213,7 +213,7 @@ namespace DemoInfo
 
 		/// <summary>
 		/// Occurs when player drops a weapon, including grenades and bomb
-		/// Hint: Raised on grenade throws and player deaths as well.
+		/// Hint: Raised on grenade throws and non-grenade weapons are reaised on player deaths as well.
 		/// </summary>
 		public event EventHandler<DropWeaponEventArgs> DropWeapon;
 
@@ -595,10 +595,6 @@ namespace DemoInfo
 						pickupweapon.Player = p;
 						pickupweapon.Weapon = weapon;
 						RaisePickupWeapon(pickupweapon);
-
-						if (weapon.Weapon == EquipmentElement.Flash) {
-							p.FlashHandle = weapon;
-						}
 					}
 
 				}
@@ -938,10 +934,14 @@ namespace DemoInfo
 					if (index != INDEX_MASK) {
 						if(cache[iForTheMethod] != 0) //Player already has a weapon in this slot. 
 						{
-							DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
-							dropweapon.Player = p;
-							dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
-							RaiseDropWeapon(dropweapon);
+							if (p.rawWeapons[cache[iForTheMethod]].Class != EquipmentClass.Grenade)
+							{
+								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+								dropweapon.Player = p;
+								dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
+								RaiseDropWeapon(dropweapon);
+							}
+
 							
 							p.rawWeapons.Remove(cache[iForTheMethod]);
 							cache[iForTheMethod] = 0;
@@ -956,11 +956,13 @@ namespace DemoInfo
 						}
 						if (p.rawWeapons.ContainsKey(cache[iForTheMethod]))
 						{
-							DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
-							dropweapon.Player = p;
-							dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
-							RaiseDropWeapon(dropweapon);
-
+							if (p.rawWeapons[cache[iForTheMethod]].Class != EquipmentClass.Grenade)
+							{
+								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+								dropweapon.Player = p;
+								dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
+								RaiseDropWeapon(dropweapon);
+							}
 							p.rawWeapons.Remove(cache[iForTheMethod]);
 						}
 
@@ -975,18 +977,24 @@ namespace DemoInfo
 				int iForTheMethod = i;
 
 				playerEntity.FindProperty ("m_iAmmo." + i.ToString ().PadLeft (3, '0')).IntRecived += (sender, e) => {
+					int prevAmmo = p.AmmoLeft[iForTheMethod];
 					p.AmmoLeft [iForTheMethod] = e.Value;
 
-					if (p.FlashHandle != null && p.FlashHandle.AmmoType == iForTheMethod) {
-						if (e.Value == 2) {
-							p.NewWeapons.Enqueue(p.FlashHandle);
-							p.HasTwoFlashes = true;
-						} else if (p.HasTwoFlashes) {
-							DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
-							dropweapon.Player = p;
-							dropweapon.Weapon = p.FlashHandle;
-							RaiseDropWeapon(dropweapon);
-							p.HasTwoFlashes = false;
+					// The inventory slot is slower than the ammo to update, to the point where a grenade can detonate before
+					// the inventory slot updates.  Hence, raising dropweapon for grenades here.
+					// NOTE: This means that unlike other items, grenades do not raise an event when the player dies.
+
+					if (e.Value <= 2) {
+						var weapon = p.rawWeapons.Values.FirstOrDefault(w => w.AmmoType == iForTheMethod);
+						if (weapon != null && weapon.Class == EquipmentClass.Grenade) {
+							if (e.Value == 2) {
+								p.NewWeapons.Enqueue(weapon);
+							} else if(e.Value < prevAmmo){
+								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+								dropweapon.Player = p;
+								dropweapon.Weapon = weapon;
+								RaiseDropWeapon(dropweapon);
+							}
 						}
 					}
 				};

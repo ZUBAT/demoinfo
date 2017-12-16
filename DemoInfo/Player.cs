@@ -72,9 +72,6 @@ namespace DemoInfo
 
 		internal int TeamID;
 
-		internal Equipment FlashHandle;
-		internal bool HasTwoFlashes = false;
-
 		internal int[] AmmoLeft = new int[32];
 
 		public AdditionalPlayerInformation AdditionaInformations { get; internal set; }
