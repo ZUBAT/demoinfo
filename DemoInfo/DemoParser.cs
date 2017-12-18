@@ -333,7 +333,8 @@ namespace DemoInfo
 
 		/// <summary>
 		/// An map entity <-> weapon. Used to remember whether a weapon is a p250, 
-		/// how much ammonition it has, etc. 
+		/// how much ammonition it has, etc.
+		/// Hint: Weapons are reused, so references will change.
 		/// </summary>
 		Equipment[] weapons = new Equipment[MAX_ENTITIES];
 
@@ -591,12 +592,15 @@ namespace DemoInfo
 
 					while (p.NewWeapons.Count > 0){
 						var weapon = p.NewWeapons.Dequeue();
+
+						if (weapon.Class == EquipmentClass.Grenade)
+							p.AmmoTypeGrenadeMap[weapon.AmmoType] = weapon;
+
 						PickupWeaponEventArgs pickupweapon = new PickupWeaponEventArgs();
 						pickupweapon.Player = p;
 						pickupweapon.Weapon = weapon;
 						RaisePickupWeapon(pickupweapon);
 					}
-
 				}
 			}
 
@@ -982,19 +986,16 @@ namespace DemoInfo
 
 					// The inventory slot is slower than the ammo to update, to the point where a grenade can detonate before
 					// the inventory slot updates.  Hence, raising dropweapon for grenades here.
-					// NOTE: This means that unlike other items, grenades do not raise an event when the player dies.
-
-					if (e.Value <= 2) {
-						var weapon = p.rawWeapons.Values.FirstOrDefault(w => w.AmmoType == iForTheMethod);
-						if (weapon != null && weapon.Class == EquipmentClass.Grenade) {
-							if (e.Value == 2) {
-								p.NewWeapons.Enqueue(weapon);
-							} else if(e.Value < prevAmmo){
-								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
-								dropweapon.Player = p;
-								dropweapon.Weapon = weapon;
-								RaiseDropWeapon(dropweapon);
-							}
+					if (p.AmmoTypeGrenadeMap.ContainsKey(iForTheMethod)) {
+						var weapon = p.AmmoTypeGrenadeMap[iForTheMethod];
+						if (e.Value == 2) {
+							//flashbang
+							p.NewWeapons.Enqueue(weapon);
+						} else if(e.Value < prevAmmo){
+							DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+							dropweapon.Player = p;
+							dropweapon.Weapon = weapon;
+							RaiseDropWeapon(dropweapon);
 						}
 					}
 				};
@@ -1033,13 +1034,15 @@ namespace DemoInfo
 
 		private bool AttributeWeapon(int weaponEntityIndex, Player p)
 		{
+			// Weapons do not actually contain correct weapon data when they are attributed.
+			// This just assigns the correct reference, which is then updated with entity data later.
+			// If you want to add code for when a player picks up a weapon and you need the weapon data look at where NewWeapons gets dequeued
 			var weapon = weapons[weaponEntityIndex];
 			weapon.Owner = p;
 			p.rawWeapons [weaponEntityIndex] = weapon;
 			p.NewWeapons.Enqueue(weapon);
 
 			return true;
-
 		}
 
 		void HandleWeapons ()

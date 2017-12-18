@@ -59,6 +59,7 @@ namespace DemoInfo
 		internal Dictionary<int, Equipment> rawWeapons = new Dictionary<int, Equipment>();
 		public IEnumerable<Equipment> Weapons { get { return rawWeapons.Values; } }
 		internal Queue<Equipment> NewWeapons = new Queue<Equipment>();
+		internal Dictionary<int, Equipment> AmmoTypeGrenadeMap = new Dictionary<int, Equipment>();
 
 		public bool IsAlive {
 			get { return HP > 0; }
