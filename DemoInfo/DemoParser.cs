@@ -213,7 +213,8 @@ namespace DemoInfo
 
 		/// <summary>
 		/// Occurs when player drops a weapon, including grenades and bomb
-		/// Hint: Raised on grenade throws and non-grenade weapons are reaised on player deaths as well.
+		/// Hint: All weapons are dropped when players die.
+		/// Grenades can be thrown on the same tick as player death, and no way to differentiate.
 		/// </summary>
 		public event EventHandler<DropWeaponEventArgs> DropWeapon;
 
@@ -986,6 +987,11 @@ namespace DemoInfo
 
 					// The inventory slot is slower than the ammo to update, to the point where a grenade can detonate before
 					// the inventory slot updates.  Hence, raising dropweapon for grenades here.
+					// However, on player deaths inventory slots and subsequently ammo are all updated on the death tick.
+					//
+					// If a player throws/releases a nade on the same tick they die, the only way to differentiate between a live
+					// grenade and one that is simply being removed from the player's inventory due to death would be to find the matching
+					// projectile entity created on the same tick. (not 100% sure that always works, but it's the only possibility)
 					if (p.AmmoTypeGrenadeMap.ContainsKey(iForTheMethod)) {
 						var weapon = p.AmmoTypeGrenadeMap[iForTheMethod];
 						if (e.Value == 2) {
