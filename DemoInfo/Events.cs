@@ -376,6 +376,25 @@ namespace DemoInfo
 
 		public Player Owner { get; set; }
 
+		/// <summary>
+		/// Use this to determine whether a grenade was thrown on player death.
+		/// Updates *after* the drop weapon event.
+		/// </summary>
+		public bool? Thrown { // Implemented like this instead of subclassed because of how Equipment instances are reused
+			get
+			{
+				if (Class != EquipmentClass.Grenade)
+					return null;
+				else
+					return _thrown;
+			}
+			set
+			{
+				_thrown = value;
+			}
+		}
+		bool? _thrown;
+
 		public int ReserveAmmo {
 			get {
 				return (Owner != null && AmmoType != -1) ? Owner.AmmoLeft [AmmoType] : -1;
@@ -572,7 +591,6 @@ namespace DemoInfo
 					break;
 				}
 			}
-
 			return weapon;
 		}
 	}

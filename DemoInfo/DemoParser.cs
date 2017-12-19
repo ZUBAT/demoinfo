@@ -206,14 +206,16 @@ namespace DemoInfo
 		public event EventHandler<PlayerHurtEventArgs> PlayerHurt;
 
 		/// <summary>
-		/// Occurs when player picks up an item, including grenades and bomb
-		/// Hint: Raised on spawns and buys as well as picking up items.
+		/// Occurs when player picks up a weapon, including grenades and bomb
+		/// Hint: Raised on spawns and buys as well as normal pickups.
 		/// </summary>
 		public event EventHandler<PickupWeaponEventArgs> PickupWeapon;
 
 		/// <summary>
 		/// Occurs when player drops a weapon, including grenades and bomb
-		/// Hint: Raised on grenade throws and non-grenade weapons are reaised on player deaths as well.
+		/// Hint: All weapons are dropped when players die.
+		/// Grenades can be thrown on the same tick as player death,
+		/// use Equipment.Thrown to differentiate.
 		/// </summary>
 		public event EventHandler<DropWeaponEventArgs> DropWeapon;
 
@@ -945,7 +947,6 @@ namespace DemoInfo
 								dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
 								RaiseDropWeapon(dropweapon);
 							}
-
 							
 							p.rawWeapons.Remove(cache[iForTheMethod]);
 							cache[iForTheMethod] = 0;
@@ -986,6 +987,8 @@ namespace DemoInfo
 
 					// The inventory slot is slower than the ammo to update, to the point where a grenade can detonate before
 					// the inventory slot updates.  Hence, raising dropweapon for grenades here.
+					// However, on player deaths inventory slots and subsequently ammo are all updated on the death tick
+
 					if (p.AmmoTypeGrenadeMap.ContainsKey(iForTheMethod)) {
 						var weapon = p.AmmoTypeGrenadeMap[iForTheMethod];
 						if (e.Value == 2) {
@@ -1105,6 +1108,15 @@ namespace DemoInfo
 						equipment.Weapon = EquipmentElement.P250;
 					else 
 						throw new InvalidDataException("Unknown weapon model");
+				};
+			}
+
+			if (equipment.Class == EquipmentClass.Grenade)
+			{
+				e.Entity.FindProperty("m_bIsHeldByPlayer").IntRecived += (sender2, e2) =>
+				{
+					// Any chance this gets set to true because of default values?
+					equipment.Thrown = e2.Value == 0;
 				};
 			}
 		}
