@@ -994,14 +994,20 @@ namespace DemoInfo
 					// projectile entity created on the same tick. (not 100% sure that always works, but it's the only possibility)
 					if (p.AmmoTypeGrenadeMap.ContainsKey(iForTheMethod)) {
 						var weapon = p.AmmoTypeGrenadeMap[iForTheMethod];
-						if (e.Value == 2) {
-							//flashbang
-							p.NewWeapons.Enqueue(weapon);
-						} else if(e.Value < prevAmmo){
-							DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
-							dropweapon.Player = p;
-							dropweapon.Weapon = weapon;
-							RaiseDropWeapon(dropweapon);
+						if (prevAmmo != 0){ // TODO: Check what happens to ammo when players buy two flashes with a script
+							// Not sure if this is always the case or just sometimes, but
+							// if a player throws a grenade while on top of a grenade of the same
+							// type the ammo can stay the same, which is why both these are true when e.Value == prevAmmo
+							if (e.Value <= prevAmmo)
+								{
+									DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+									dropweapon.Player = p;
+									dropweapon.Weapon = weapon;
+									RaiseDropWeapon(dropweapon);
+								}
+
+							if (e.Value >= prevAmmo)
+								p.NewWeapons.Enqueue(weapon);
 						}
 					}
 				};
