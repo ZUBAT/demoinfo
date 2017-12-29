@@ -998,6 +998,9 @@ namespace DemoInfo
 							// Not sure if this is always the case or just sometimes, but
 							// if a player throws a grenade while on top of a grenade of the same
 							// type the ammo can stay the same, which is why both these are true when e.Value == prevAmmo
+
+							// I have seen a case where player has two flashbangs and throws while on top of another
+							// and the flashbang ammo field didn't have any kind of update, so the event wasn't raised.
 							if (e.Value <= prevAmmo)
 								{
 									DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
