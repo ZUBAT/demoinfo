@@ -109,6 +109,7 @@ namespace DemoInfo
 
 		/// <summary>
 		/// Occurs when a weapon is fired.
+		/// Hint: Occurs on pulling back grenade, not on release.
 		/// </summary>
 		public event EventHandler<WeaponFiredEventArgs> WeaponFired;
 
@@ -1173,6 +1174,7 @@ namespace DemoInfo
 				nadeClass.OnNewEntity += (s, ent) =>
 				{
 					Player thrower = new Player();
+					int? nadeState = null;
 					int startTick = CurrentTick; // used to avoid raising on initial parse
 
 					ent.Entity.FindProperty("m_hOwnerEntity").IntRecived += (s2, handleID) =>
@@ -1181,6 +1183,11 @@ namespace DemoInfo
 						if (playerEntityID < PlayerInformations.Length && PlayerInformations[playerEntityID - 1] != null)
 							thrower = PlayerInformations[playerEntityID - 1];
 					};
+
+					// m_iState == 1 == WEAPON_IS_CARRIED_BY_PLAYER
+					// When a player changes weapons in the middle of a throw
+					// m_fThrowTime gets set to 0 and m_iState gets set to 1
+					ent.Entity.FindProperty("m_iState").IntRecived += (s2, state) => nadeState = state.Value;
 
 					ent.Entity.FindProperty("m_fThrowTime").FloatRecived += (s2, tTime) =>
 					{
@@ -1200,7 +1207,7 @@ namespace DemoInfo
 						else
 							nadeType = EquipmentElement.Decoy;
 
-						if (CurrentTick != startTick && throwTime == 0 && !thrower.ThrewNadeThisTick)
+						if (thrower.SteamID != -1 && CurrentTick != startTick && nadeState != 1 && throwTime == 0 && !thrower.ThrewNadeThisTick)
 						{
 							DropWeaponEventArgs dropWeapon = new DropWeaponEventArgs();
 							dropWeapon.Player = thrower;
