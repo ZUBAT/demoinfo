@@ -602,8 +602,11 @@ namespace DemoInfo
 						pickupweapon.Weapon = weapon;
 						RaisePickupWeapon(pickupweapon);
 					}
+
+					p.ThrewNadeThisTick = false;
 				}
 			}
+
 
 			if (b) {
 				if (TickDone != null)
@@ -698,7 +701,9 @@ namespace DemoInfo
 
 			HandlePlayers();
 
-			HandleWeapons ();
+			HandleWeapons();
+
+			HandleGrenades();
 		}
 
 		private void HandleTeamScores()
@@ -995,18 +1000,18 @@ namespace DemoInfo
 					if (p.AmmoTypeGrenadeMap.ContainsKey(iForTheMethod)) {
 						var weapon = p.AmmoTypeGrenadeMap[iForTheMethod];
 						if (prevAmmo != 0){ // TODO: Check what happens to ammo when players buy two flashes with a script
-							// Not sure if this is always the case or just sometimes, but
-							// if a player throws a grenade while on top of a grenade of the same
-							// type the ammo can stay the same, which is why both these are true when e.Value == prevAmmo
-
-							// I have seen a case where player has two flashbangs and throws while on top of another
-							// and the flashbang ammo field didn't have any kind of update, so the event wasn't raised.
+							// If a player throws a grenade while on top of a grenade of the same
+							// type the ammo can update but keep the same value,
+							// which is why both these are true when e.Value == prevAmmo.
+							// Sometimes when this happens there is no update at all,
+							// so HandleGrenades uses ThrewNadeThisTick to make the DropWeapon event
 							if (e.Value <= prevAmmo)
 								{
 									DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
 									dropweapon.Player = p;
 									dropweapon.Weapon = weapon;
 									RaiseDropWeapon(dropweapon);
+									p.ThrewNadeThisTick = true;
 								}
 
 							if (e.Value >= prevAmmo)
@@ -1150,6 +1155,61 @@ namespace DemoInfo
 				};
 			};
 
+		}
+
+		private void HandleGrenades()
+		{
+			var molClass = SendTableParser.FindByName("CMolotovGrenade");
+			var incClass = SendTableParser.FindByName("CIncendiaryGrenade");
+			var smokeClass = SendTableParser.FindByName("CSmokeGrenade");
+			var heClass = SendTableParser.FindByName("CHEGrenade");
+			var flashClass = SendTableParser.FindByName("CFlashbang");
+			var decoyClass = SendTableParser.FindByName("CDecoyGrenade");
+
+			var nadeClasses = new ServerClass[6] { molClass, incClass, smokeClass, heClass, flashClass, decoyClass };
+
+			foreach (var nadeClass in nadeClasses)
+			{
+				nadeClass.OnNewEntity += (s, ent) =>
+				{
+					Player thrower = new Player();
+					int startTick = CurrentTick; // used to avoid raising on initial parse
+
+					ent.Entity.FindProperty("m_hOwnerEntity").IntRecived += (s2, handleID) =>
+					{
+						int playerEntityID = handleID.Value & INDEX_MASK;
+						if (playerEntityID < PlayerInformations.Length && PlayerInformations[playerEntityID - 1] != null)
+							thrower = PlayerInformations[playerEntityID - 1];
+					};
+
+					ent.Entity.FindProperty("m_fThrowTime").FloatRecived += (s2, tTime) =>
+					{
+						float throwTime = tTime.Value;
+						EquipmentElement nadeType;
+
+						if (nadeClass == molClass)
+							nadeType = EquipmentElement.Molotov;
+						else if (nadeClass == incClass)
+							nadeType = EquipmentElement.Incendiary;
+						else if (nadeClass == smokeClass)
+							nadeType = EquipmentElement.Smoke;
+						else if (nadeClass == heClass)
+							nadeType = EquipmentElement.HE;
+						else if (nadeClass == flashClass)
+							nadeType = EquipmentElement.Flash;
+						else
+							nadeType = EquipmentElement.Decoy;
+
+						if (CurrentTick != startTick && throwTime == 0 && !thrower.ThrewNadeThisTick)
+						{
+							DropWeaponEventArgs dropWeapon = new DropWeaponEventArgs();
+							dropWeapon.Player = thrower;
+							dropWeapon.Weapon = thrower.Weapons.Single(w => w.Weapon == nadeType);
+							RaiseDropWeapon(dropWeapon);
+						}
+					};
+				};
+			}
 		}
 		#if SAVE_PROP_VALUES
 		[Obsolete("This method is only for debugging-purposes and shuld never be used in production, so you need to live with this warning.")]
