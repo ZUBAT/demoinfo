@@ -376,13 +376,7 @@ namespace DemoInfo.DP.Handler
 				e.HasKit = (bool)data["haskit"];
 				parser.RaiseBombBeginDefuse(e);
 				break;
-			case "bomb_abortdefuse":
-				data = MapData(eventDescriptor, rawEvent);
-				var e2 = new BombDefuseEventArgs();
-                e2.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-				e2.HasKit = e2.Player.HasDefuseKit;
-				parser.RaiseBombAbortDefuse(e2);
-				break;
+			// bomb_abortdefuse not networked, so handled using m_bIsDefusing on the player entity instead
 			}
 		}
 
