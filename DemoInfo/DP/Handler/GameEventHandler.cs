@@ -362,6 +362,8 @@ namespace DemoInfo.DP.Handler
 					break;
 				case "bomb_defused":
 					parser.RaiseBombDefused(bombEventArgs);
+					Player defuser = parser.PlayingParticipants.Single(p => p.IsDefusing);
+					defuser.IsDefusing = false;
 					break;
 				case "bomb_exploded":
 					parser.RaiseBombExploded(bombEventArgs);

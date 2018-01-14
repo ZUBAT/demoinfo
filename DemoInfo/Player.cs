@@ -67,7 +67,7 @@ namespace DemoInfo
 
 		public bool HasDefuseKit { get; set; }
 
-		internal DefuseInfo DefuseInfo = new DefuseInfo();
+		public bool IsDefusing { get; set; }
 
 		public bool HasHelmet { get; set; }
 
@@ -132,12 +132,5 @@ namespace DemoInfo
 		Spectate = 1,
 		Terrorist = 2,
 		CounterTerrorist = 3,
-	}
-
-	internal class DefuseInfo
-	{
-		internal bool IsDefusing;
-		internal float? DefuseTimeStart;
-		internal int? DefuseDuration;
 	}
 }

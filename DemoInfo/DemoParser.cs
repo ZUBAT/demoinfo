@@ -920,29 +920,17 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_unRoundStartEquipmentValue").IntRecived += (sender, e) => p.RoundStartEquipmentValue = e.Value;
 			playerEntity.FindProperty("m_unFreezetimeEndEquipmentValue").IntRecived += (sender, e) => p.FreezetimeEndEquipmentValue = e.Value;
 
-			// this relies on these defuse fields always being parsed in this order
-			playerEntity.FindProperty("m_bIsDefusing").IntRecived += (sender, e) =>
-				p.DefuseInfo.IsDefusing = (e.Value == 1);
-			playerEntity.FindProperty("m_iProgressBarDuration").IntRecived += (sender, e) => {
-				var def = p.DefuseInfo;
-				if (def.IsDefusing)
-				{
-					def.DefuseDuration = e.Value;
-					def.DefuseTimeStart = CurrentTime;
-				}
-				else
-				{
-					if (def.DefuseTimeStart + def.DefuseDuration > CurrentTime)
-					{
-						var abortArgs = new BombDefuseEventArgs();
-						abortArgs.Player = p;
-						abortArgs.HasKit = p.HasDefuseKit;
-						RaiseBombAbortDefuse(abortArgs);
-					}
+			playerEntity.FindProperty("m_bIsDefusing").IntRecived += (sender, e) => {
 
-					def.DefuseTimeStart = null;
-					def.DefuseDuration = null;
+				//It's possible for a second e.Value of 1 to be sent a couple ticks after the first
+				if (p.IsDefusing && e.Value == 0)
+				{
+					var abortArgs = new BombDefuseEventArgs();
+					abortArgs.Player = p;
+					abortArgs.HasKit = p.HasDefuseKit;
+					RaiseBombAbortDefuse(abortArgs);
 				}
+				p.IsDefusing = (e.Value == 1);
 			};
 
 			//Weapon attribution
