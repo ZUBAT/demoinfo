@@ -387,6 +387,16 @@ namespace DemoInfo
 			this.Weapon = EquipmentElement.Unknown;
 		}
 
+		internal Equipment (Equipment eq)
+		{
+			Weapon = eq.Weapon;
+
+			OriginalString = eq.OriginalString;
+			SkinID = eq.SkinID;
+			AmmoInMagazine = eq.AmmoInMagazine;
+			Owner = eq.Owner;
+		}
+
 		internal Equipment (string originalString)
 		{
 			OriginalString = originalString;

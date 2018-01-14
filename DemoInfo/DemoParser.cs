@@ -949,7 +949,7 @@ namespace DemoInfo
 							{
 								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
 								dropweapon.Player = p;
-								dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
+								dropweapon.Weapon = new Equipment(p.rawWeapons[cache[iForTheMethod]]);
 								RaiseDropWeapon(dropweapon);
 							}
 
@@ -971,7 +971,7 @@ namespace DemoInfo
 							{
 								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
 								dropweapon.Player = p;
-								dropweapon.Weapon = p.rawWeapons[cache[iForTheMethod]];
+								dropweapon.Weapon = new Equipment(p.rawWeapons[cache[iForTheMethod]]);
 								RaiseDropWeapon(dropweapon);
 							}
 							p.rawWeapons.Remove(cache[iForTheMethod]);
@@ -1010,7 +1010,7 @@ namespace DemoInfo
 								{
 									DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
 									dropweapon.Player = p;
-									dropweapon.Weapon = weapon;
+									dropweapon.Weapon = new Equipment(weapon);
 									RaiseDropWeapon(dropweapon);
 									p.ThrewNadeThisTick = true;
 								}
@@ -1211,7 +1211,7 @@ namespace DemoInfo
 						{
 							DropWeaponEventArgs dropWeapon = new DropWeaponEventArgs();
 							dropWeapon.Player = thrower;
-							dropWeapon.Weapon = thrower.Weapons.Single(w => w.Weapon == nadeType);
+							dropWeapon.Weapon = new Equipment(thrower.Weapons.Single(w => w.Weapon == nadeType));
 							RaiseDropWeapon(dropWeapon);
 						}
 					};
