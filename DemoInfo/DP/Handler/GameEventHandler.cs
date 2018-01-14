@@ -375,10 +375,12 @@ namespace DemoInfo.DP.Handler
 				data = MapData(eventDescriptor, rawEvent);
 				var e = new BombDefuseEventArgs();
                 e.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
+				if (e.Player != null && e.Player.IsDefusing) //prevent begindefuse from being raised if player is already defusing
+					break;
 				e.HasKit = (bool)data["haskit"];
 				parser.RaiseBombBeginDefuse(e);
 				break;
-			// bomb_abortdefuse not networked, so handled using m_bIsDefusing on the player entity instead
+			// bomb_abortdefuse not networked, so it's handled using m_bIsDefusing on the player entity instead
 			}
 		}
 
