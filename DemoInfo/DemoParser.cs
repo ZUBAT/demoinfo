@@ -921,16 +921,28 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_unFreezetimeEndEquipmentValue").IntRecived += (sender, e) => p.FreezetimeEndEquipmentValue = e.Value;
 
 			playerEntity.FindProperty("m_bIsDefusing").IntRecived += (sender, e) => {
+				bool val = e.Value == 1;
 
-				//It's possible for a second e.Value of 1 to be sent a couple ticks after the first
-				if (p.IsDefusing && e.Value == 0)
+				// Possible for it to be updated multiple times in consecutive ticks
+				if (p.IsDefusing == val)
+					return;
+
+				if (val)
+				{
+					var beginArgs = new BombDefuseEventArgs();
+					beginArgs.HasKit = p.HasDefuseKit;
+					beginArgs.Player = p;
+					RaiseBombBeginDefuse(beginArgs);
+				}
+				else
 				{
 					var abortArgs = new BombDefuseEventArgs();
 					abortArgs.Player = p;
 					abortArgs.HasKit = p.HasDefuseKit;
 					RaiseBombAbortDefuse(abortArgs);
 				}
-				p.IsDefusing = (e.Value == 1);
+
+				p.IsDefusing = val;
 			};
 
 			//Weapon attribution
