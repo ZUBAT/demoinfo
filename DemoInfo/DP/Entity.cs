@@ -17,6 +17,11 @@ namespace DemoInfo.DP
 
 		public PropertyEntry[] Props { get; private set; }
 
+		/// <summary>
+		/// Raised after the initial property update after entity is created
+		/// </summary>
+		internal event Action OnInit;
+
 		public Entity(int id, ServerClass serverClass)
 		{
 			this.ID = id;
@@ -103,6 +108,12 @@ namespace DemoInfo.DP
 		public override string ToString()
 		{
 			return ID + ": " + this.ServerClass;
+		}
+
+		internal void RaiseOnInit()
+		{
+			if (OnInit != null)
+				OnInit();
 		}
 	}
 
