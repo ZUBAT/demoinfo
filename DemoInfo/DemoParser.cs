@@ -928,7 +928,15 @@ namespace DemoInfo
 					RaiseBombAbortDefuse(abortArgs);
 				}
 
-				p.IsDefusing = val;
+				EventHandler<TickDoneEventArgs> lambda = null;
+				lambda = (s2, ee) =>
+				{
+					// Need to keep it set to 'true' when defusing until end of tick
+					// so that we can find the defuser
+					p.IsDefusing = val;
+					TickDone -= lambda;
+				};
+				TickDone += lambda;
 			};
 
 			//Weapon attribution
@@ -1125,6 +1133,69 @@ namespace DemoInfo
 				};
 			};
 
+			SendTableParser.FindByName("CPlantedC4").OnNewEntity += (s, ent) =>
+			{
+				// Sometimes there's PlantedC4 entity on the first tick of a demo that doesn't actually exist in-game.
+				// In the demos where this has happened so far it has m_bBombTicking set to 0
+				int initTick = CurrentTick;
+				bool badBomb = false;
+
+				var bomb = new PositionedEntity(ent.Entity, this);
+				var bombArgs = new BombEventArgs();
+				bool defused = false;
+				char site;
+
+				ent.Entity.OnInit += () => {
+					if (badBomb)
+						return;
+
+					site = bomb.Position.Distance(bombsiteACenter) < bomb.Position.Distance(bombsiteBCenter) ? 'A' : 'B';
+					bombArgs.Player = bomb.Owner;
+					bombArgs.Site = site;
+					RaiseBombPlanted(bombArgs);
+				};
+
+				ent.Entity.FindProperty("m_bBombDefused").IntRecived += (s1, def) =>
+				{
+					if (badBomb)
+						return;
+
+					defused = def.Value == 1;
+					if (defused)
+					{
+						var defuseArgs = new BombEventArgs();
+						defuseArgs.Site = bombArgs.Site;
+						defuseArgs.Player = PlayingParticipants.Single(p => p.IsDefusing);
+						RaiseBombDefused(defuseArgs);
+					}
+				};
+
+				ent.Entity.FindProperty("m_bBombTicking").IntRecived += (s1, t) =>
+				{
+					bool ticking = t.Value == 1;
+					if (ticking)
+						return;
+
+					if (CurrentTick == initTick)
+					{
+						badBomb = true;
+						return;
+					}
+
+					// m_bBombDefused field is after m_bBombTicking, so we need to wait,
+					// This function runs once at the end of the tick and then unsubscribes itself
+					EventHandler<TickDoneEventArgs> lambda = null;
+					lambda = (s2, e) =>
+					{
+						if (!defused)
+							RaiseBombExploded(bombArgs);
+
+						TickDone -= lambda;
+					};
+					TickDone += lambda;
+				};
+
+			};
 		}
 
 		private void SetCellWidth()

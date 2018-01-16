@@ -312,9 +312,6 @@ namespace DemoInfo.DP.Handler
 				break;
 			case "bomb_beginplant": //When the bomb is starting to get planted
 			case "bomb_abortplant": //When the bomb planter stops planting the bomb
-			case "bomb_planted": //When the bomb has been planted
-			case "bomb_defused": //When the bomb has been defused
-			case "bomb_exploded": //When the bomb has exploded
 				data = MapData(eventDescriptor, rawEvent);
 
 				var bombEventArgs = new BombEventArgs();
@@ -336,11 +333,8 @@ namespace DemoInfo.DP.Handler
 						//planted at B.
 						bombEventArgs.Site = 'B';
 						parser.bombsiteBIndex = site;
-					} 
+					}
 				}
-
-
-
 
 				switch (eventDescriptor.Name) {
 				case "bomb_beginplant":
@@ -348,17 +342,6 @@ namespace DemoInfo.DP.Handler
 					break;
 				case "bomb_abortplant":
 					parser.RaiseBombAbortPlant(bombEventArgs);
-					break;
-				case "bomb_planted":
-					parser.RaiseBombPlanted(bombEventArgs);
-					break;
-				case "bomb_defused":
-					parser.RaiseBombDefused(bombEventArgs);
-					Player defuser = parser.PlayingParticipants.Single(p => p.IsDefusing);
-					defuser.IsDefusing = false;
-					break;
-				case "bomb_exploded":
-					parser.RaiseBombExploded(bombEventArgs);
 					break;
 				}
 
