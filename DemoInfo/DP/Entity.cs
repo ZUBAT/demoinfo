@@ -353,18 +353,27 @@ namespace DemoInfo.DP
 			}
 		}
 	}
+
 	internal class OwnedEntity
 	{
-		internal int? EntityID { get; set; }
-		internal Player Owner { get; set; }
+		virtual internal int? EntityID { get; set; }
+		virtual internal Player Owner { get; set; }
 
 		protected DemoParser parser;
 
+		public OwnedEntity(DemoParser _parser)
+		{
+			parser = _parser;
+		}
 		public OwnedEntity(Entity ent, DemoParser _parser)
 		{
 			parser = _parser;
 			EntityID = ent.ID;
+			subToProps(ent);
+		}
 
+		internal virtual void subToProps(Entity ent)
+		{
 			ent.FindProperty("m_hOwnerEntity").IntRecived += (s, handleID) =>
 			{
 				int playerEntityID = handleID.Value & DemoParser.INDEX_MASK;
@@ -382,11 +391,15 @@ namespace DemoInfo.DP
 		internal int CellY { get; set; }
 		internal int CellZ { get; set; }
 
-		protected DemoParser parser;
-
-		public PositionedEntity(Entity ent, DemoParser parser)
-			: base(ent, parser)
+		public PositionedEntity(DemoParser parser) : base(parser) { }
+		public PositionedEntity(Entity ent, DemoParser parser) : base(ent, parser)
 		{
+			subToProps(ent);
+		}
+
+		internal override void subToProps(Entity ent)
+		{
+			base.subToProps(ent);
 			ent.FindProperty("m_cellX").IntRecived += (s2, cell) => CellX = cell.Value;
 			ent.FindProperty("m_cellY").IntRecived += (s2, cell) => CellY = cell.Value;
 			ent.FindProperty("m_cellZ").IntRecived += (s2, cell) => CellZ = cell.Value;
@@ -402,6 +415,114 @@ namespace DemoInfo.DP
 				else
 					return new Vector();
 			}
+		}
+	}
+
+	enum DetonateState { PreDetonate, Detonating, Detonated }
+
+	abstract class DetonateEntity : PositionedEntity
+	{
+		internal NadeEventArgs NadeArgs = new NadeEventArgs();
+		internal DetonateState DetonateState = DetonateState.PreDetonate;
+
+		// Necessary to use properties here so that NadeArgs is kept current
+		override internal int? EntityID { get { return NadeArgs.EntityID; } set { NadeArgs.EntityID = value; } }
+		override internal Vector Origin
+		{
+			get { return _origin; }
+			set
+			{ // origin is always present in position updates
+				_origin = value;
+				if (NadeArgs.Interpolated)
+					NadeArgs.Position = Position;
+			}
+		}
+		override internal Player Owner { get { return NadeArgs.ThrownBy; } set { NadeArgs.ThrownBy = value; } }
+
+		Vector _origin;
+
+		internal DetonateEntity(DemoParser parser) : base(parser) { }
+		internal DetonateEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+		}
+
+		abstract internal void RaiseNadeStart();
+		abstract internal void RaiseNadeEnd();
+		abstract internal void CopyAndReplaceNadeArgs(); // so that same args aren't raised for start and end
+	}
+
+	class FireDetonateEntity : DetonateEntity
+	{
+		internal FireDetonateEntity(DemoParser parser) : base(parser) { }
+		internal FireDetonateEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+			NadeArgs = new FireEventArgs(NadeArgs);
+			NadeArgs.Interpolated = true;
+		}
+
+		internal override void RaiseNadeStart()
+		{
+			parser.RaiseFireWithOwnerStart((FireEventArgs)NadeArgs);
+		}
+
+		internal override void RaiseNadeEnd()
+		{
+			parser.RaiseFireEnd((FireEventArgs)NadeArgs);
+		}
+
+		internal override void CopyAndReplaceNadeArgs()
+		{
+			NadeArgs = new FireEventArgs(NadeArgs);
+		}
+	}
+
+	class SmokeDetonateEntity : DetonateEntity
+	{
+		internal SmokeDetonateEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+			NadeArgs = new SmokeEventArgs(NadeArgs);
+			NadeArgs.Interpolated = true;
+		}
+
+		internal override void RaiseNadeStart()
+		{
+			parser.RaiseSmokeStart((SmokeEventArgs)NadeArgs);
+		}
+
+		internal override void RaiseNadeEnd()
+		{
+			parser.RaiseSmokeEnd((SmokeEventArgs)NadeArgs);
+		}
+
+		internal override void CopyAndReplaceNadeArgs()
+		{
+			NadeArgs = new SmokeEventArgs(NadeArgs);
+		}
+	}
+
+	class DecoyDetonateEntity : DetonateEntity
+	{
+		internal float? FlagTime;
+
+		internal DecoyDetonateEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+			NadeArgs = new DecoyEventArgs(NadeArgs);
+			NadeArgs.Interpolated = true;
+		}
+
+		internal override void RaiseNadeStart()
+		{
+			parser.RaiseDecoyStart((DecoyEventArgs)NadeArgs);
+		}
+
+		internal override void RaiseNadeEnd()
+		{
+			parser.RaiseDecoyEnd((DecoyEventArgs)NadeArgs);
+		}
+
+		internal override void CopyAndReplaceNadeArgs()
+		{
+			NadeArgs = new DecoyEventArgs(NadeArgs);
 		}
 	}
 	#region Update-Types
