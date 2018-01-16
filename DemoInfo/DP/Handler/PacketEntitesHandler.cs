@@ -37,6 +37,7 @@ namespace DemoInfo.DP.Handler
 						parser.Entities[currentEntity] = e;
 
 						e.ApplyUpdate(reader);
+						e.RaiseOnInit();
 					} else {
 						// preserve / update
 						Entity e = parser.Entities[currentEntity];
