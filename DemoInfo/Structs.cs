@@ -129,10 +129,15 @@ namespace DemoInfo
 			return new Vector() {X = a.X - b.X, Y = a.Y - b.Y, Z = a.Z - b.Z };
 		}
 
-        public override string ToString()
-        {
-            return "{X: " + X + ", Y: " + Y + ", Z: " + Z + " }";
-        }
+		public double Distance(Vector v)
+		{
+			return Math.Sqrt(Math.Pow(this.X - v.X, 2) + Math.Pow(this.Y - v.Y, 2) + Math.Pow(this.Z - v.Z, 2));
+		}
+
+		public override string ToString()
+		{
+			return "{X: " + X + ", Y: " + Y + ", Z: " + Z + " }";
+		}
     }
 
 	/// <summary>

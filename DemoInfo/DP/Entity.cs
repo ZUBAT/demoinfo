@@ -353,7 +353,57 @@ namespace DemoInfo.DP
 			}
 		}
 	}
+	internal class OwnedEntity
+	{
+		internal int? EntityID { get; set; }
+		internal Player Owner { get; set; }
 
+		protected DemoParser parser;
+
+		public OwnedEntity(Entity ent, DemoParser _parser)
+		{
+			parser = _parser;
+			EntityID = ent.ID;
+
+			ent.FindProperty("m_hOwnerEntity").IntRecived += (s, handleID) =>
+			{
+				int playerEntityID = handleID.Value & DemoParser.INDEX_MASK;
+				var infos = parser.PlayerInformations;
+				if (playerEntityID < infos.Length && infos[playerEntityID - 1] != null)
+					Owner = infos[playerEntityID - 1];
+			};
+		}
+	}
+
+	internal class PositionedEntity : OwnedEntity
+	{
+		virtual internal Vector Origin { get; set; }
+		internal int CellX { get; set; }
+		internal int CellY { get; set; }
+		internal int CellZ { get; set; }
+
+		protected DemoParser parser;
+
+		public PositionedEntity(Entity ent, DemoParser parser)
+			: base(ent, parser)
+		{
+			ent.FindProperty("m_cellX").IntRecived += (s2, cell) => CellX = cell.Value;
+			ent.FindProperty("m_cellY").IntRecived += (s2, cell) => CellY = cell.Value;
+			ent.FindProperty("m_cellZ").IntRecived += (s2, cell) => CellZ = cell.Value;
+			ent.FindProperty("m_vecOrigin").VectorRecived += (s2, vector) => Origin = vector.Value;
+		}
+
+		internal Vector Position
+		{
+			get
+			{
+				if (Origin != null)
+					return parser.CellsToCoords(CellX, CellY, CellZ) + Origin;
+				else
+					return new Vector();
+			}
+		}
+	}
 	#region Update-Types
 	class PropertyUpdateEventArgs<T> : EventArgs
 	{
