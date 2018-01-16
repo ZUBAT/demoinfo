@@ -353,6 +353,7 @@ namespace DemoInfo.DP
 			}
 		}
 	}
+
 	internal class OwnedEntity
 	{
 		internal int? EntityID { get; set; }
@@ -360,11 +361,19 @@ namespace DemoInfo.DP
 
 		protected DemoParser parser;
 
+		public OwnedEntity(DemoParser _parser)
+		{
+			parser = _parser;
+		}
 		public OwnedEntity(Entity ent, DemoParser _parser)
 		{
 			parser = _parser;
 			EntityID = ent.ID;
+			subToProps(ent);
+		}
 
+		internal virtual void subToProps(Entity ent)
+		{
 			ent.FindProperty("m_hOwnerEntity").IntRecived += (s, handleID) =>
 			{
 				int playerEntityID = handleID.Value & DemoParser.INDEX_MASK;
@@ -382,11 +391,16 @@ namespace DemoInfo.DP
 		internal int CellY { get; set; }
 		internal int CellZ { get; set; }
 
-		protected DemoParser parser;
-
+		public PositionedEntity(DemoParser parser) : base(parser) { }
 		public PositionedEntity(Entity ent, DemoParser parser)
 			: base(ent, parser)
 		{
+			subToProps(ent);
+		}
+
+		internal override void subToProps(Entity ent)
+		{
+			base.subToProps(ent);
 			ent.FindProperty("m_cellX").IntRecived += (s2, cell) => CellX = cell.Value;
 			ent.FindProperty("m_cellY").IntRecived += (s2, cell) => CellY = cell.Value;
 			ent.FindProperty("m_cellZ").IntRecived += (s2, cell) => CellZ = cell.Value;
