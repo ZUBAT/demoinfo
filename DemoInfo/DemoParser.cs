@@ -112,6 +112,7 @@ namespace DemoInfo
 
 		/// <summary>
 		/// Occurs when a weapon is fired.
+		/// Hint: Occurs on pulling back grenade, not on release.
 		/// </summary>
 		public event EventHandler<WeaponFiredEventArgs> WeaponFired;
 
@@ -214,6 +215,19 @@ namespace DemoInfo
 		/// Hint: The order of the blind event and FlashNadeExploded event is not always the same
 		/// </summary>
 		public event EventHandler<BlindEventArgs> Blind;
+
+		/// <summary>
+		/// Occurs when player picks up an item, including grenades and bomb
+		/// Hint: Raised on spawns and buys as well as picking up items.
+		/// </summary>
+		public event EventHandler<PickupWeaponEventArgs> PickupWeapon;
+
+		/// <summary>
+		/// Occurs when player drops a weapon, including grenades and bomb
+		/// Hint: All weapons are dropped when players die.
+		/// Grenades can be thrown on the same tick as player death, and no way to differentiate.
+		/// </summary>
+		public event EventHandler<DropWeaponEventArgs> DropWeapon;
 
 		/// <summary>
 		/// Occurs when the player object is first updated to reference all the necessary information
@@ -331,7 +345,8 @@ namespace DemoInfo
 
 		/// <summary>
 		/// An map entity <-> weapon. Used to remember whether a weapon is a p250, 
-		/// how much ammonition it has, etc. 
+		/// how much ammonition it has, etc.
+		/// Hint: Weapons are reused, so references will change.
 		/// </summary>
 		Equipment[] weapons = new Equipment[MAX_ENTITIES];
 
@@ -550,6 +565,7 @@ namespace DemoInfo
 		/// <returns><c>true</c>, if this wasn't the last tick, <c>false</c> otherwise.</returns>
 		public bool ParseNextTick()
 		{
+
 			if (Header == null)
 				throw new InvalidOperationException ("You need to call ParseHeader first before you call ParseToEnd or ParseNextTick!");
 
@@ -585,8 +601,23 @@ namespace DemoInfo
 						bind.Player = p;
 						RaisePlayerBind(bind);
 					}
+
+					while (p.NewWeapons.Count > 0){
+						var weapon = p.NewWeapons.Dequeue();
+
+						if (weapon.Class == EquipmentClass.Grenade)
+							p.AmmoTypeGrenadeMap[weapon.AmmoType] = weapon;
+
+						PickupWeaponEventArgs pickupweapon = new PickupWeaponEventArgs();
+						pickupweapon.Player = p;
+						pickupweapon.Weapon = weapon;
+						RaisePickupWeapon(pickupweapon);
+					}
+
+					p.ThrewNadeThisTick = false;
 				}
 			}
+
 
 			if (b) {
 				if (TickDone != null)
@@ -682,6 +713,8 @@ namespace DemoInfo
 			HandlePlayers();
 
 			HandleWeapons ();
+
+			HandleGrenades();
 
 			SetCellWidth();
 		}
@@ -912,7 +945,6 @@ namespace DemoInfo
 			if (playerEntity.Props.All (a => a.Entry.PropertyName != "m_hMyWeapons.000"))
 				weaponPrefix = "bcc_nonlocaldata.m_hMyWeapons.";
 
-
 			int[] cache = new int[MAXWEAPONS];
 
 			for(int i = 0; i < MAXWEAPONS; i++)
@@ -920,12 +952,20 @@ namespace DemoInfo
 				int iForTheMethod = i; //Because else i is passed as reference to the delegate. 
 
 				playerEntity.FindProperty(weaponPrefix + i.ToString().PadLeft(3, '0')).IntRecived += (sender, e) => {
-
 					int index = e.Value & INDEX_MASK;
 
 					if (index != INDEX_MASK) {
 						if(cache[iForTheMethod] != 0) //Player already has a weapon in this slot. 
 						{
+							if (p.rawWeapons[cache[iForTheMethod]].Class != EquipmentClass.Grenade)
+							{
+								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+								dropweapon.Player = p;
+								dropweapon.Weapon = new Equipment(p.rawWeapons[cache[iForTheMethod]]);
+								RaiseDropWeapon(dropweapon);
+							}
+
+							
 							p.rawWeapons.Remove(cache[iForTheMethod]);
 							cache[iForTheMethod] = 0;
 						}
@@ -937,7 +977,17 @@ namespace DemoInfo
 						{
 							p.rawWeapons[cache[iForTheMethod]].Owner = null;
 						}
-						p.rawWeapons.Remove(cache[iForTheMethod]);
+						if (p.rawWeapons.ContainsKey(cache[iForTheMethod]))
+						{
+							if (p.rawWeapons[cache[iForTheMethod]].Class != EquipmentClass.Grenade)
+							{
+								DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+								dropweapon.Player = p;
+								dropweapon.Weapon = new Equipment(p.rawWeapons[cache[iForTheMethod]]);
+								RaiseDropWeapon(dropweapon);
+							}
+							p.rawWeapons.Remove(cache[iForTheMethod]);
+						}
 
 						cache[iForTheMethod] = 0;
 					}
@@ -950,11 +1000,39 @@ namespace DemoInfo
 				int iForTheMethod = i;
 
 				playerEntity.FindProperty ("m_iAmmo." + i.ToString ().PadLeft (3, '0')).IntRecived += (sender, e) => {
+					int prevAmmo = p.AmmoLeft[iForTheMethod];
 					p.AmmoLeft [iForTheMethod] = e.Value;
+
+					// The inventory slot is slower than the ammo to update, to the point where a grenade can detonate before
+					// the inventory slot updates.  Hence, raising dropweapon for grenades here.
+					// However, on player deaths inventory slots and subsequently ammo are all updated on the death tick.
+					//
+					// If a player throws/releases a nade on the same tick they die, the only way to differentiate between a live
+					// grenade and one that is simply being removed from the player's inventory due to death would be to find the matching
+					// projectile entity created on the same tick. (not 100% sure that always works, but it's the only possibility)
+					if (p.AmmoTypeGrenadeMap.ContainsKey(iForTheMethod)) {
+						var weapon = p.AmmoTypeGrenadeMap[iForTheMethod];
+						if (prevAmmo != 0){ // TODO: Check what happens to ammo when players buy two flashes with a script
+							// If a player throws a grenade while on top of a grenade of the same
+							// type the ammo can update but keep the same value,
+							// which is why both these are true when e.Value == prevAmmo.
+							// Sometimes when this happens there is no update at all,
+							// so HandleGrenades uses ThrewNadeThisTick to make the DropWeapon event
+							if (e.Value <= prevAmmo)
+								{
+									DropWeaponEventArgs dropweapon = new DropWeaponEventArgs();
+									dropweapon.Player = p;
+									dropweapon.Weapon = new Equipment(weapon);
+									RaiseDropWeapon(dropweapon);
+									p.ThrewNadeThisTick = true;
+								}
+
+							if (e.Value >= prevAmmo)
+								p.NewWeapons.Enqueue(weapon);
+						}
+					}
 				};
 			}
-
-
 		}
 
 		private void MapEquipment()
@@ -989,9 +1067,13 @@ namespace DemoInfo
 
 		private bool AttributeWeapon(int weaponEntityIndex, Player p)
 		{
+			// Weapons do not actually contain correct weapon data when they are attributed.
+			// This just assigns the correct reference, which is then updated with entity data later.
+			// If you want to add code for when a player picks up a weapon and you need the weapon data look at where NewWeapons gets dequeued
 			var weapon = weapons[weaponEntityIndex];
 			weapon.Owner = p;
 			p.rawWeapons [weaponEntityIndex] = weapon;
+			p.NewWeapons.Enqueue(weapon);
 
 			return true;
 		}
@@ -1121,6 +1203,66 @@ namespace DemoInfo
 				cellZ * cellWidth - MAX_COORD_INTEGER);
 		}
 
+		private void HandleGrenades()
+		{
+			var molClass = SendTableParser.FindByName("CMolotovGrenade");
+			var incClass = SendTableParser.FindByName("CIncendiaryGrenade");
+			var smokeClass = SendTableParser.FindByName("CSmokeGrenade");
+			var heClass = SendTableParser.FindByName("CHEGrenade");
+			var flashClass = SendTableParser.FindByName("CFlashbang");
+			var decoyClass = SendTableParser.FindByName("CDecoyGrenade");
+
+			var nadeClasses = new ServerClass[6] { molClass, incClass, smokeClass, heClass, flashClass, decoyClass };
+
+			foreach (var nadeClass in nadeClasses)
+			{
+				nadeClass.OnNewEntity += (s, ent) =>
+				{
+					Player thrower = new Player();
+					int? nadeState = null;
+					int startTick = CurrentTick; // used to avoid raising on initial parse
+
+					ent.Entity.FindProperty("m_hOwnerEntity").IntRecived += (s2, handleID) =>
+					{
+						int playerEntityID = handleID.Value & INDEX_MASK;
+						if (playerEntityID < PlayerInformations.Length && PlayerInformations[playerEntityID - 1] != null)
+							thrower = PlayerInformations[playerEntityID - 1];
+					};
+
+					// m_iState == 1 == WEAPON_IS_CARRIED_BY_PLAYER
+					// When a player changes weapons in the middle of a throw
+					// m_fThrowTime gets set to 0 and m_iState gets set to 1
+					ent.Entity.FindProperty("m_iState").IntRecived += (s2, state) => nadeState = state.Value;
+
+					ent.Entity.FindProperty("m_fThrowTime").FloatRecived += (s2, tTime) =>
+					{
+						float throwTime = tTime.Value;
+						EquipmentElement nadeType;
+
+						if (nadeClass == molClass)
+							nadeType = EquipmentElement.Molotov;
+						else if (nadeClass == incClass)
+							nadeType = EquipmentElement.Incendiary;
+						else if (nadeClass == smokeClass)
+							nadeType = EquipmentElement.Smoke;
+						else if (nadeClass == heClass)
+							nadeType = EquipmentElement.HE;
+						else if (nadeClass == flashClass)
+							nadeType = EquipmentElement.Flash;
+						else
+							nadeType = EquipmentElement.Decoy;
+
+						if (thrower.SteamID != -1 && CurrentTick != startTick && nadeState != 1 && throwTime == 0 && !thrower.ThrewNadeThisTick)
+						{
+							DropWeaponEventArgs dropWeapon = new DropWeaponEventArgs();
+							dropWeapon.Player = thrower;
+							dropWeapon.Weapon = new Equipment(thrower.Weapons.Single(w => w.Weapon == nadeType));
+							RaiseDropWeapon(dropWeapon);
+						}
+					};
+				};
+			}
+		}
 		#if SAVE_PROP_VALUES
 		[Obsolete("This method is only for debugging-purposes and shuld never be used in production, so you need to live with this warning.")]
 		public string DumpAllEntities()
@@ -1382,6 +1524,18 @@ namespace DemoInfo
 				BombAbortDefuse(this, args);
 		}
 
+		internal void RaisePickupWeapon(PickupWeaponEventArgs args)
+		{
+			if (PickupWeapon != null)
+				PickupWeapon(this, args);
+		}
+
+		internal void RaiseDropWeapon(DropWeaponEventArgs args)
+		{
+			if (DropWeapon != null)
+				DropWeapon(this, args);
+		}
+
 		internal void RaiseSayText(SayTextEventArgs args)
 		{
 			if (SayText != null)
@@ -1447,6 +1601,8 @@ namespace DemoInfo
 			this.SmokeNadeEnded = null;
 			this.SmokeNadeStarted = null;
 			this.WeaponFired = null;
+			this.DropWeapon = null;
+			this.PickupWeapon = null;
 
 			Players.Clear ();
 		}

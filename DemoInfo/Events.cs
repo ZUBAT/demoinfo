@@ -254,6 +254,19 @@ namespace DemoInfo
 		public Player Attacker { get; set; }
 
 		public float? FlashDuration { get; set; }
+
+	}
+
+	public class PickupWeaponEventArgs : EventArgs
+	{
+		public Player Player { get; set; }
+		public Equipment Weapon { get; set; }
+	}
+
+	public class DropWeaponEventArgs : EventArgs
+	{
+		public Player Player { get; set; }
+		public Equipment Weapon { get; set; }
 	}
 
 	public class PlayerBindEventArgs : EventArgs
@@ -386,11 +399,22 @@ namespace DemoInfo
 			this.Weapon = EquipmentElement.Unknown;
 		}
 
+		internal Equipment (Equipment eq)
+		{
+			Weapon = eq.Weapon;
+
+			OriginalString = eq.OriginalString;
+			SkinID = eq.SkinID;
+			AmmoInMagazine = eq.AmmoInMagazine;
+			Owner = eq.Owner;
+		}
+
 		internal Equipment (string originalString)
 		{
 			OriginalString = originalString;
 
 			this.Weapon = MapEquipment (originalString);
+
 
 		}
 
