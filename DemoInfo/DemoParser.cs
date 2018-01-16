@@ -1104,8 +1104,17 @@ namespace DemoInfo
 			{
 				var bomb = new PositionedEntity(ent.Entity, this);
 				char site;
+
+				int initTick = CurrentTick;
+				bool badBomb = false;
+
 				ent.Entity.FindProperty("m_bStartedArming").IntRecived += (s1, arm) =>
 				{
+					if (CurrentTick == initTick)
+						badBomb = true;
+					if (badBomb)
+						return;
+
 					bool arming = arm.Value == 1;
 
 					if (!arming)
