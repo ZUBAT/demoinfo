@@ -67,6 +67,8 @@ namespace DemoInfo
 
 		public bool HasDefuseKit { get; set; }
 
+		public bool IsDefusing { get; set; }
+
 		public bool HasHelmet { get; set; }
 
 		internal int TeamID;

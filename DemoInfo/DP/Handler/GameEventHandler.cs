@@ -354,26 +354,14 @@ namespace DemoInfo.DP.Handler
 					break;
 				case "bomb_defused":
 					parser.RaiseBombDefused(bombEventArgs);
+					Player defuser = parser.PlayingParticipants.Single(p => p.IsDefusing);
+					defuser.IsDefusing = false;
 					break;
 				case "bomb_exploded":
 					parser.RaiseBombExploded(bombEventArgs);
 					break;
 				}
 
-				break;
-			case "bomb_begindefuse":
-				data = MapData(eventDescriptor, rawEvent);
-				var e = new BombDefuseEventArgs();
-                e.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-				e.HasKit = (bool)data["haskit"];
-				parser.RaiseBombBeginDefuse(e);
-				break;
-			case "bomb_abortdefuse":
-				data = MapData(eventDescriptor, rawEvent);
-				var e2 = new BombDefuseEventArgs();
-                e2.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-				e2.HasKit = e2.Player.HasDefuseKit;
-				parser.RaiseBombAbortDefuse(e2);
 				break;
 			}
 		}

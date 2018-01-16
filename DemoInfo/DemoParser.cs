@@ -906,6 +906,31 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_unRoundStartEquipmentValue").IntRecived += (sender, e) => p.RoundStartEquipmentValue = e.Value;
 			playerEntity.FindProperty("m_unFreezetimeEndEquipmentValue").IntRecived += (sender, e) => p.FreezetimeEndEquipmentValue = e.Value;
 
+			playerEntity.FindProperty("m_bIsDefusing").IntRecived += (sender, e) => {
+				bool val = e.Value == 1;
+
+				// Possible for it to be updated multiple times in consecutive ticks
+				if (p.IsDefusing == val)
+					return;
+
+				if (val)
+				{
+					var beginArgs = new BombDefuseEventArgs();
+					beginArgs.HasKit = p.HasDefuseKit;
+					beginArgs.Player = p;
+					RaiseBombBeginDefuse(beginArgs);
+				}
+				else
+				{
+					var abortArgs = new BombDefuseEventArgs();
+					abortArgs.Player = p;
+					abortArgs.HasKit = p.HasDefuseKit;
+					RaiseBombAbortDefuse(abortArgs);
+				}
+
+				p.IsDefusing = val;
+			};
+
 			//Weapon attribution
 			string weaponPrefix = "m_hMyWeapons.";
 
