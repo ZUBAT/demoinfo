@@ -234,21 +234,13 @@ namespace DemoInfo.DP.Handler
 				parser.RaiseSmokeEnd(FillNadeEvent<SmokeEventArgs>(MapData(eventDescriptor, rawEvent), parser));
 				break;
 			case "inferno_startburn":
-				var fireData = MapData(eventDescriptor, rawEvent);
-				var fireArgs = FillNadeEvent<FireEventArgs>(fireData, parser);
-				var fireStarted = new Tuple<int, FireEventArgs>((int)fireData["entityid"], fireArgs);
-				parser.GEH_StartBurns.Enqueue(fireStarted);
-				parser.RaiseFireStart(fireArgs);
+				parser.RaiseFireStart(FillNadeEvent<FireEventArgs>(MapData(eventDescriptor, rawEvent), parser));
 				break;
 			case "inferno_expire":
-				var fireEndData = MapData(eventDescriptor, rawEvent);
-				var fireEndArgs = FillNadeEvent<FireEventArgs>(fireEndData, parser);
-				int entityID = (int)fireEndData["entityid"];
-				fireEndArgs.ThrownBy = parser.InfernoOwners[entityID];
-				parser.RaiseFireEnd(fireEndArgs);
+				parser.RaiseFireEnd(FillNadeEvent<FireEventArgs>(MapData(eventDescriptor, rawEvent), parser));
 				break;
 				#endregion
-
+			
 			case "player_connect":
 				data = MapData (eventDescriptor, rawEvent);
 
