@@ -1194,7 +1194,25 @@ namespace DemoInfo
 					};
 					TickDone += lambda;
 				};
+			};
 
+			SendTableParser.FindByName("CC4").OnNewEntity += (s, ent) =>
+			{
+				var bomb = new PositionedEntity(ent.Entity, this);
+				char site;
+				ent.Entity.FindProperty("m_bStartedArming").IntRecived += (s1, arm) =>
+				{
+					bool arming = arm.Value == 1;
+
+					if (!arming)
+					{
+						var bombArgs = new BombEventArgs();
+						site = bomb.Position.Distance(bombsiteACenter) < bomb.Position.Distance(bombsiteBCenter) ? 'A' : 'B';
+						bombArgs.Player = bomb.Owner;
+						bombArgs.Site = site;
+						RaiseBombAbortPlant(bombArgs);
+					}
+				};
 			};
 		}
 

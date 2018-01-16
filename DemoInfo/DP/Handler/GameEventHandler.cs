@@ -311,7 +311,6 @@ namespace DemoInfo.DP.Handler
 				parser.RaisePlayerTeam(playerTeamEvent);
 				break;
 			case "bomb_beginplant": //When the bomb is starting to get planted
-			case "bomb_abortplant": //When the bomb planter stops planting the bomb
 				data = MapData(eventDescriptor, rawEvent);
 
 				var bombEventArgs = new BombEventArgs();
@@ -339,9 +338,6 @@ namespace DemoInfo.DP.Handler
 				switch (eventDescriptor.Name) {
 				case "bomb_beginplant":
 					parser.RaiseBombBeginPlant(bombEventArgs);
-					break;
-				case "bomb_abortplant":
-					parser.RaiseBombAbortPlant(bombEventArgs);
 					break;
 				}
 
