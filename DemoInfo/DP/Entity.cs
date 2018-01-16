@@ -429,6 +429,37 @@ namespace DemoInfo.DP
 			}
 		}
 	}
+
+	internal enum BombState { Planted, Defusing, Defused, Exploded };
+
+	internal class BombEntity : PositionedEntity
+	{
+		internal BombState BombState = BombState.Planted;
+		internal bool Ticking = true;
+		internal Player Defuser;
+		internal bool Defused { get { return BombState == BombState.Defused; } }
+		internal char Site {
+			get
+			{
+				double distToA = Position.Distance(parser.bombsiteACenter);
+				double distToB = Position.Distance(parser.bombsiteBCenter);
+				return distToA < distToB ? 'A' : 'B';
+			}
+		}
+
+		internal BombEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+		}
+
+		internal BombEventArgs MakeBombArgs()
+		{
+			var args = new BombEventArgs();
+			args.Player = Owner;
+			args.Site = Site;
+
+			return args;
+		}
+	}
 	#region Update-Types
 	class PropertyUpdateEventArgs<T> : EventArgs
 	{

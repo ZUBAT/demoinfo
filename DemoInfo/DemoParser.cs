@@ -30,6 +30,8 @@ namespace DemoInfo
 		private const int MAX_COORD_INTEGER = 16384;
 		private int cellWidth;
 
+		private BombEntity plantedBomb;
+
 
 		#region Events
 		/// <summary>
@@ -915,6 +917,8 @@ namespace DemoInfo
 
 				if (val)
 				{
+					plantedBomb.BombState = BombState.Defusing;
+
 					var beginArgs = new BombDefuseEventArgs();
 					beginArgs.HasKit = p.HasDefuseKit;
 					beginArgs.Player = p;
@@ -922,21 +926,26 @@ namespace DemoInfo
 				}
 				else
 				{
-					var abortArgs = new BombDefuseEventArgs();
-					abortArgs.Player = p;
-					abortArgs.HasKit = p.HasDefuseKit;
-					RaiseBombAbortDefuse(abortArgs);
-				}
+					EventHandler<TickDoneEventArgs> lambda = null;
+					lambda = (s2, ee) =>
+					{
+						// We won't know whether it's an abort or a defuse until the bomb gets checked
+						// which is after player entities
+						p.IsDefusing = false;
+						if (!plantedBomb.Defused)
+						{
+							plantedBomb.BombState = BombState.Planted;
 
-				EventHandler<TickDoneEventArgs> lambda = null;
-				lambda = (s2, ee) =>
-				{
-					// Need to keep it set to 'true' when defusing until end of tick
-					// so that we can find the defuser
-					p.IsDefusing = val;
-					TickDone -= lambda;
-				};
-				TickDone += lambda;
+							var abortArgs = new BombDefuseEventArgs();
+							abortArgs.Player = p;
+							abortArgs.HasKit = p.HasDefuseKit;
+							RaiseBombAbortDefuse(abortArgs);
+						}
+						TickDone -= lambda;
+					};
+
+					TickDone += lambda;
+				}
 			};
 
 			//Weapon attribution
@@ -1140,19 +1149,13 @@ namespace DemoInfo
 				int initTick = CurrentTick;
 				bool badBomb = false;
 
-				var bomb = new PositionedEntity(ent.Entity, this);
-				var bombArgs = new BombEventArgs();
-				bool defused = false;
-				char site;
+				plantedBomb = new BombEntity(ent.Entity, this);
 
 				ent.Entity.OnInit += () => {
 					if (badBomb)
 						return;
 
-					site = bomb.Position.Distance(bombsiteACenter) < bomb.Position.Distance(bombsiteBCenter) ? 'A' : 'B';
-					bombArgs.Player = bomb.Owner;
-					bombArgs.Site = site;
-					RaiseBombPlanted(bombArgs);
+					RaiseBombPlanted(plantedBomb.MakeBombArgs());
 				};
 
 				ent.Entity.FindProperty("m_bBombDefused").IntRecived += (s1, def) =>
@@ -1160,12 +1163,13 @@ namespace DemoInfo
 					if (badBomb)
 						return;
 
-					defused = def.Value == 1;
-					if (defused)
+					if (def.Value == 1)
+						plantedBomb.BombState = BombState.Defused;
+
+					if (plantedBomb.Defused)
 					{
-						var defuseArgs = new BombEventArgs();
-						defuseArgs.Site = bombArgs.Site;
-						defuseArgs.Player = PlayingParticipants.Single(p => p.IsDefusing);
+						var defuseArgs = plantedBomb.MakeBombArgs();
+						defuseArgs.Player = plantedBomb.Defuser;
 						RaiseBombDefused(defuseArgs);
 					}
 				};
@@ -1179,6 +1183,7 @@ namespace DemoInfo
 					if (CurrentTick == initTick)
 					{
 						badBomb = true;
+						plantedBomb = null;
 						return;
 					}
 
@@ -1187,8 +1192,11 @@ namespace DemoInfo
 					EventHandler<TickDoneEventArgs> lambda = null;
 					lambda = (s2, e) =>
 					{
-						if (!defused)
-							RaiseBombExploded(bombArgs);
+						if (!plantedBomb.Defused)
+						{
+							RaiseBombExploded(plantedBomb.MakeBombArgs());
+							plantedBomb.BombState = BombState.Exploded;
+						}
 
 						TickDone -= lambda;
 					};
@@ -1198,8 +1206,7 @@ namespace DemoInfo
 
 			SendTableParser.FindByName("CC4").OnNewEntity += (s, ent) =>
 			{
-				var bomb = new PositionedEntity(ent.Entity, this);
-				char site;
+				var bomb = new BombEntity(ent.Entity, this);
 
 				int initTick = CurrentTick;
 				bool badBomb = false;
@@ -1215,11 +1222,7 @@ namespace DemoInfo
 
 					if (!arming)
 					{
-						var bombArgs = new BombEventArgs();
-						site = bomb.Position.Distance(bombsiteACenter) < bomb.Position.Distance(bombsiteBCenter) ? 'A' : 'B';
-						bombArgs.Player = bomb.Owner;
-						bombArgs.Site = site;
-						RaiseBombAbortPlant(bombArgs);
+						RaiseBombAbortPlant(bomb.MakeBombArgs());
 					}
 				};
 			};
