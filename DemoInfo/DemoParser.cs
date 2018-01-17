@@ -1119,7 +1119,6 @@ namespace DemoInfo
 		    }
 		}
 
-		internal List<BoundingBoxInformation> triggers = new List<BoundingBoxInformation>();
 		private void HandleBombSites()
 		{
 			SendTableParser.FindByName("CCSPlayerResource").OnNewEntity += (s1, newResource) => {
@@ -1128,20 +1127,6 @@ namespace DemoInfo
 				};
 				newResource.Entity.FindProperty("m_bombsiteCenterB").VectorRecived += (s3, center) => {
 					bombsiteBCenter = center.Value;
-				};
-			};
-
-			SendTableParser.FindByName("CBaseTrigger").OnNewEntity += (s1, newResource) => {
-
-				BoundingBoxInformation trigger = new BoundingBoxInformation(newResource.Entity.ID);
-				triggers.Add(trigger);
-
-				newResource.Entity.FindProperty("m_Collision.m_vecMins").VectorRecived += (s2, vector) => {
-					trigger.Min = vector.Value;
-				};
-
-				newResource.Entity.FindProperty("m_Collision.m_vecMaxs").VectorRecived += (s3, vector) => {
-					trigger.Max = vector.Value;
 				};
 			};
 
