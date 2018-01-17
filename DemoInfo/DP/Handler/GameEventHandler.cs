@@ -310,38 +310,6 @@ namespace DemoInfo.DP.Handler
 
 				parser.RaisePlayerTeam(playerTeamEvent);
 				break;
-			case "bomb_beginplant": //When the bomb is starting to get planted
-				data = MapData(eventDescriptor, rawEvent);
-
-				var bombEventArgs = new BombEventArgs();
-                bombEventArgs.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-
-				int site = (int)data["site"];
-
-				if (site == parser.bombsiteAIndex) {
-					bombEventArgs.Site = 'A';
-				} else if (site == parser.bombsiteBIndex) {
-					bombEventArgs.Site = 'B';
-				} else {
-					var relevantTrigger = parser.triggers.Single(a => a.Index == site);
-					if (relevantTrigger.Contains(parser.bombsiteACenter)) {
-						//planted at A.
-						bombEventArgs.Site = 'A';
-						parser.bombsiteAIndex = site;
-					} else {
-						//planted at B.
-						bombEventArgs.Site = 'B';
-						parser.bombsiteBIndex = site;
-					}
-				}
-
-				switch (eventDescriptor.Name) {
-				case "bomb_beginplant":
-					parser.RaiseBombBeginPlant(bombEventArgs);
-					break;
-				}
-
-				break;
 			}
 		}
 

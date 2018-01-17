@@ -918,6 +918,8 @@ namespace DemoInfo
 				if (val)
 				{
 					plantedBomb.BombState = BombState.Defusing;
+					plantedBomb.Defuser = p;
+					p.IsDefusing = true;
 
 					var beginArgs = new BombDefuseEventArgs();
 					beginArgs.HasKit = p.HasDefuseKit;
@@ -935,6 +937,7 @@ namespace DemoInfo
 						if (!plantedBomb.Defused)
 						{
 							plantedBomb.BombState = BombState.Planted;
+							plantedBomb.Defuser = null;
 
 							var abortArgs = new BombDefuseEventArgs();
 							abortArgs.Player = p;
@@ -1155,6 +1158,7 @@ namespace DemoInfo
 					if (badBomb)
 						return;
 
+					plantedBomb.BombState = BombState.Planted;
 					RaiseBombPlanted(plantedBomb.MakeBombArgs());
 				};
 
@@ -1208,21 +1212,19 @@ namespace DemoInfo
 			{
 				var bomb = new BombEntity(ent.Entity, this);
 
-				int initTick = CurrentTick;
-				bool badBomb = false;
-
 				ent.Entity.FindProperty("m_bStartedArming").IntRecived += (s1, arm) =>
 				{
-					if (CurrentTick == initTick)
-						badBomb = true;
-					if (badBomb)
-						return;
-
 					bool arming = arm.Value == 1;
 
-					if (!arming)
+					if (arming)
+					{
+						bomb.BombState = BombState.Planting;
+						RaiseBombBeginPlant(bomb.MakeBombArgs());
+					}
+					else if (bomb.BombState == BombState.Planting)
 					{
 						RaiseBombAbortPlant(bomb.MakeBombArgs());
+						bomb.BombState = BombState.Held;
 					}
 				};
 			};

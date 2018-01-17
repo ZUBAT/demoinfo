@@ -430,12 +430,11 @@ namespace DemoInfo.DP
 		}
 	}
 
-	internal enum BombState { Planted, Defusing, Defused, Exploded };
+	internal enum BombState { Held, Planting, Planted, Defusing, Defused, Exploded };
 
 	internal class BombEntity : PositionedEntity
 	{
-		internal BombState BombState = BombState.Planted;
-		internal bool Ticking = true;
+		internal BombState BombState = BombState.Held;
 		internal Player Defuser;
 		internal bool Defused { get { return BombState == BombState.Defused; } }
 		internal char Site {
