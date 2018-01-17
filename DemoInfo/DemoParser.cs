@@ -1104,12 +1104,20 @@ namespace DemoInfo
 			{
 				var bomb = new PositionedEntity(ent.Entity, this);
 				char site;
+				bool planting = false;
+
 				ent.Entity.FindProperty("m_bStartedArming").IntRecived += (s1, arm) =>
 				{
 					bool arming = arm.Value == 1;
 
-					if (!arming)
+					if (arming)
+						planting = true;
+
+					// planting check ensures there's actually a plant going on and not just bad data
+					if (!arming && planting)
 					{
+						planting = false;
+
 						var bombArgs = new BombEventArgs();
 						site = bomb.Position.Distance(bombsiteACenter) < bomb.Position.Distance(bombsiteBCenter) ? 'A' : 'B';
 						bombArgs.Player = bomb.Owner;
