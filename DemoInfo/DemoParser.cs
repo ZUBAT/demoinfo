@@ -151,6 +151,11 @@ namespace DemoInfo
 		/// </summary>
 		public event EventHandler<FireEventArgs> FireNadeStarted;
 
+		/// <summary>
+		/// FireNadeStarted, but with correct ThrownBy player.
+		/// Hint: Raised at the end of inferno_startburn tick instead of exactly when the event is parsed
+		/// </summary>
+		public event EventHandler<FireEventArgs> FireNadeWithOwnerStarted;
 
 		/// <summary>
 		/// Occurs when fire nade ended.
@@ -599,6 +604,56 @@ namespace DemoInfo
 				}
 			}
 
+			while (InterpDetonates.Count > 0) {
+				var detonate = InterpDetonates.Dequeue();
+				detonate.RaiseNadeStart();
+				detonate.DetonateState = DetonateState.Detonating;
+			}
+
+			// It's possible for entities to be replaced without being destroyed
+			// It might be possible for an entity to be replaced by the same type of entity,
+			// but that hasn't been seen so far.  If such a case arises, I think the only way to differentiate
+			// two entities with the same id and same class would be to look at the seriesid,
+			// but that's not currently coded.
+			if (DetonateEntities.Count > 0)
+			{
+				List<int> badEntities = new List<int>();
+				foreach (var detEnt in DetonateEntities)
+				{
+					var ent = Entities[detEnt.Key];
+					if (ent != null)
+					{
+						string detClsName = "";
+						if (detEnt.Value is FireDetonateEntity)
+							detClsName = "CInferno";
+						else if (detEnt.Value is SmokeDetonateEntity)
+							detClsName = "CSmokeGrenadeProjectile";
+						else if (detEnt.Value is DecoyDetonateEntity)
+							detClsName = "CDecoyProjectile";
+
+						if (ent.ServerClass.Name != detClsName)
+							badEntities.Add(detEnt.Key);
+					}
+				}
+
+				foreach (int k in badEntities)
+					PopDetonateEntity(k);
+			}
+
+			const int preStartThresh = 2;
+			if (CurrentTick % 10 == 0)
+			{
+				foreach (var det in DetonateEntities.Values)
+				{
+					if (det is DecoyDetonateEntity &&
+						det.DetonateState == DetonateState.PreDetonate &&
+						CurrentTime - ((DecoyDetonateEntity)det).FlagTime > preStartThresh)
+					{
+						InterpDetonates.Enqueue(det);
+					}
+				}
+			}
+
 			if (b) {
 				if (TickDone != null)
 					TickDone(this, new TickDoneEventArgs());
@@ -693,6 +748,8 @@ namespace DemoInfo
 			HandlePlayers();
 
 			HandleWeapons ();
+
+			HandleDetonates();
 
 			SetCellWidth();
 
@@ -1226,6 +1283,101 @@ namespace DemoInfo
 			};
 		}
 
+		internal Queue<DetonateEntity> InterpDetonates = new Queue<DetonateEntity>();
+		internal Dictionary<int, DetonateEntity> DetonateEntities = new Dictionary<int, DetonateEntity>();
+		private void HandleDetonates()
+		{
+			var infernoClass = SendTableParser.FindByName("CInferno"); // fire-making entity, not projectile
+			var smokeClass = SendTableParser.FindByName("CSmokeGrenadeProjectile");
+			var decoyClass = SendTableParser.FindByName("CDecoyProjectile");
+			ServerClass[] projClasses = new ServerClass[3] {infernoClass, smokeClass, decoyClass};
+			foreach (var projClass in projClasses)
+			{
+				projClass.OnNewEntity += (s, ent) =>
+				{
+					DetonateEntity det;
+
+					if (projClass == infernoClass)
+					{
+						if (DetonateEntities.ContainsKey(ent.Entity.ID))
+						{
+							// inferno_startburn successfully triggered, but we still want to add owner
+							det = DetonateEntities[ent.Entity.ID];
+							((OwnedEntity)det).subToProps(ent.Entity); // sub to owner
+							InterpDetonates.Enqueue(det);
+						}
+						else
+							det = new FireDetonateEntity(ent.Entity, this);
+					}
+					else if (projClass == smokeClass)
+					{
+						det = new SmokeDetonateEntity(ent.Entity, this);
+						ent.Entity.FindProperty("m_bDidSmokeEffect").IntRecived += (s2, smokeEffect) =>
+						{
+							//m_bDidSmokeEffect happens on the same tick as smokegrenade_detonate
+							if (smokeEffect.Value == 1 && det.DetonateState == DetonateState.PreDetonate)
+								InterpDetonates.Enqueue(det);
+						};
+					}
+					else
+					{
+						det = new DecoyDetonateEntity(ent.Entity, this);
+						ent.Entity.FindProperty("m_fFlags").IntRecived += (s2, flag) =>
+						{
+							// There doesn't seem to be any property that is tightly coupled with
+							// decoy_started events, but m_fFlags always occurs some time beforehand.
+							if (flag.Value == 1)
+							{
+								if (det.DetonateState == DetonateState.PreDetonate)
+								{
+									// It's possible, but rare, for m_fFlags to be set on the same tick as decoy_started
+									((DecoyDetonateEntity)det).FlagTime = CurrentTime;
+								}
+							}
+						};
+					}
+
+					if (det.DetonateState == DetonateState.PreDetonate)
+					{
+						//DT_Inferno entity is created on the same tick as inferno_startburn, but parsed after
+						if (projClass == infernoClass)
+							InterpDetonates.Enqueue(det);
+
+						DetonateEntities[ent.Entity.ID] = det;
+						det.EntityID = ent.Entity.ID;
+					}
+				};
+
+				projClass.OnDestroyEntity += (s, ent) =>
+				{
+					// DetonateEntities get removed on detonate_end events,
+					// so the only ones left at this point are those that had no end triggered
+					if (DetonateEntities.ContainsKey(ent.Entity.ID))
+						PopDetonateEntity(ent.Entity.ID);
+				};
+			}
+		}
+
+		private void PopDetonateEntity(int entID)
+		{
+			var detEntity = DetonateEntities[entID];
+
+			if (detEntity.DetonateState == DetonateState.PreDetonate)
+			{
+				// This happens when a player throws a grenade, but it never detonates.
+				// Either the round ended before detonation, or if it's a molotov it detonated in the sky.
+				DetonateEntities.Remove(entID);
+				return;
+			}
+
+			detEntity.CopyAndReplaceNadeArgs();
+			detEntity.NadeArgs.Interpolated = true;
+
+			detEntity.RaiseNadeEnd();
+
+			DetonateEntities.Remove(entID);
+		}
+
 		private void SetCellWidth()
 		{
 			SendTableParser.FindByName("CBaseEntity").OnNewEntity += (s, baseEnt) =>
@@ -1510,6 +1662,15 @@ namespace DemoInfo
 				NadeReachedTarget(this, args);
 		}
 
+		internal void RaiseFireWithOwnerStart(FireEventArgs args)
+		{
+			if (FireNadeWithOwnerStarted != null)
+				FireNadeWithOwnerStarted(this, args);
+
+			if (NadeReachedTarget != null)
+				NadeReachedTarget(this, args);
+		}
+
 		internal void RaiseFireEnd(FireEventArgs args)
 		{
 			if (FireNadeEnded != null)
@@ -1632,6 +1793,7 @@ namespace DemoInfo
 			this.ExplosiveNadeExploded = null;
 			this.FireNadeEnded = null;
 			this.FireNadeStarted = null;
+			this.FireNadeWithOwnerStarted = null;
 			this.FlashNadeExploded = null;
 			this.FreezetimeStarted = null;
 			this.FreezetimeEnded = null;

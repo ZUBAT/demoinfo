@@ -64,7 +64,7 @@ namespace DemoInfo.DP.Handler
 				parser.RaiseLastRoundHalf();
 
 			if (eventDescriptor.Name == "round_officially_ended")
-				parser.RaiseRoundOfficiallyEnd ();
+				parser.RaiseRoundOfficiallyEnd();
 
 			if (eventDescriptor.Name == "round_mvp") {
 				data = MapData (eventDescriptor, rawEvent);
@@ -177,6 +177,9 @@ namespace DemoInfo.DP.Handler
 						else
 							blind.FlashDuration = null;
 
+						if (data.ContainsKey("entityid"))
+							blind.ProjectileEntityID = (int?)data["entityid"];
+
 						parser.RaiseBlind(blind);
 					}
 
@@ -195,25 +198,50 @@ namespace DemoInfo.DP.Handler
 				parser.RaiseGrenadeExploded(FillNadeEvent<GrenadeEventArgs>(MapData(eventDescriptor, rawEvent), parser));
 				break;
 			case "decoy_started":
-				parser.RaiseDecoyStart(FillNadeEvent<DecoyEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var decoyData = MapData(eventDescriptor, rawEvent);
+				var decoyArgs = FillNadeEvent<DecoyEventArgs>(decoyData, parser);
+				parser.RaiseDecoyStart(decoyArgs);
+				var decoyEnt = parser.DetonateEntities[(int)decoyData["entityid"]];
+				decoyEnt.DetonateState = DetonateState.Detonating;
+				decoyEnt.NadeArgs = decoyArgs;
 				break;
 			case "decoy_detonate":
-				parser.RaiseDecoyEnd(FillNadeEvent<DecoyEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var decoyEndData = MapData(eventDescriptor, rawEvent);
+				parser.RaiseDecoyEnd(FillNadeEvent<DecoyEventArgs>(decoyEndData, parser));
+				parser.DetonateEntities.Remove((int)decoyEndData["entityid"]);
 				break;
 			case "smokegrenade_detonate":
-				parser.RaiseSmokeStart(FillNadeEvent<SmokeEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var smokeData = MapData(eventDescriptor, rawEvent);
+				var smokeArgs = FillNadeEvent<SmokeEventArgs>(smokeData, parser);
+				parser.RaiseSmokeStart(smokeArgs);
+				var smokeEnt = parser.DetonateEntities[(int)smokeData["entityid"]];
+				smokeEnt.DetonateState = DetonateState.Detonating;
+				smokeEnt.NadeArgs = smokeArgs;
 				break;
 			case "smokegrenade_expired":
-				parser.RaiseSmokeEnd(FillNadeEvent<SmokeEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var smokeEndData = MapData(eventDescriptor, rawEvent);
+				parser.RaiseSmokeEnd(FillNadeEvent<SmokeEventArgs>(smokeEndData, parser));
+				parser.DetonateEntities.Remove((int)smokeEndData["entityid"]);
 				break;
 			case "inferno_startburn":
-				parser.RaiseFireStart(FillNadeEvent<FireEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var fireData = MapData(eventDescriptor, rawEvent);
+				var fireArgs = FillNadeEvent<FireEventArgs>(fireData, parser);
+				var fireEnt = new FireDetonateEntity(parser);
+				parser.DetonateEntities[(int)fireData["entityid"]] = fireEnt;
+				fireEnt.NadeArgs = fireArgs;
+				fireEnt.DetonateState = DetonateState.Detonating;
+				parser.RaiseFireStart(fireArgs);
 				break;
 			case "inferno_expire":
-				parser.RaiseFireEnd(FillNadeEvent<FireEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var fireEndData = MapData(eventDescriptor, rawEvent);
+				var fireEndArgs = FillNadeEvent<FireEventArgs>(fireEndData, parser);
+				int endEntityID = (int)fireEndData["entityid"];
+				fireEndArgs.ThrownBy = parser.DetonateEntities[endEntityID].NadeArgs.ThrownBy;
+				parser.RaiseFireEnd(fireEndArgs);
+				parser.DetonateEntities.Remove(endEntityID);
 				break;
 				#endregion
-			
+
 			case "player_connect":
 				data = MapData (eventDescriptor, rawEvent);
 
@@ -229,7 +257,6 @@ namespace DemoInfo.DP.Handler
 				int index = (int)data["index"];
 
 				parser.RawPlayers[index] = player;
-
 
 				break;
 			case "player_disconnect":
@@ -289,6 +316,8 @@ namespace DemoInfo.DP.Handler
 		private static T FillNadeEvent<T>(Dictionary<string, object> data, DemoParser parser) where T : NadeEventArgs, new()
 		{
 			var nade = new T();
+
+			nade.EntityID = (int)data["entityid"];
 
 			if (data.ContainsKey("userid") && parser.Players.ContainsKey((int)data["userid"]))
 				nade.ThrownBy = parser.Players[(int)data["userid"]];
