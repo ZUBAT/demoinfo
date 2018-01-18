@@ -115,6 +115,18 @@ namespace DemoInfo
 		public bool Headshot { get; internal set; }
 	}
 
+	public class UpdateAttributeEventArgs : EventArgs
+	{
+		public Player Player { get; internal set; }
+		public int Value {get; internal set;}
+	}
+
+	public class UpdateHeldEventArgs : EventArgs
+	{
+		public Player Player { get; internal set; }
+		public bool Held { get; internal set; }
+	}
+
 	public class BotTakeOverEventArgs : EventArgs
 	{
 		public Player Taker { get; internal set; }
