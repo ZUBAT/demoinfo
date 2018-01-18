@@ -63,27 +63,6 @@ namespace DemoInfo.DP.Handler
 			if (eventDescriptor.Name == "round_announce_last_round_half")
 				parser.RaiseLastRoundHalf();
 
-			if (eventDescriptor.Name == "round_end") {
-				data = MapData (eventDescriptor, rawEvent);
-
-				Team t = Team.Spectate;
-
-				int winner = (int)data ["winner"];
-
-				if (winner == parser.tID)
-					t = Team.Terrorist;
-				else if (winner == parser.ctID)
-					t = Team.CounterTerrorist;
-
-				RoundEndedEventArgs roundEnd = new RoundEndedEventArgs () {
-					Reason = (RoundEndReason)data["reason"],
-					Winner = t,
-					Message = (string)data["message"],
-				};
-
-				parser.RaiseRoundEnd (roundEnd);
-			}
-
 			if (eventDescriptor.Name == "round_officially_ended")
 				parser.RaiseRoundOfficiallyEnd ();
 

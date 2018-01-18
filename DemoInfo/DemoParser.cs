@@ -698,6 +698,8 @@ namespace DemoInfo
 			HandleWeapons ();
 
 			HandleInfernos();
+
+			HandleRounds();
 		}
 
 		private void HandleTeamScores()
@@ -1133,6 +1135,50 @@ namespace DemoInfo
 				InfernoOwners.Remove(infEntity.Entity.ID);
 			};
 		}
+		public bool MatchPaused { get; set; }
+		public bool MatchStartedx { get; set; }
+		private void HandleRounds()
+		{
+			SendTableParser.FindByName("CCSGameRulesProxy").OnNewEntity += (s, ent) =>
+			{
+				ent.Entity.FindProperty("cs_gamerules_data.m_eRoundWinReason").IntRecived += (s1, r) =>
+				{
+					if (r.Value == 0)
+						return;
+
+					RoundEndedEventArgs endArgs = new RoundEndedEventArgs();
+					endArgs.Reason = (RoundEndReason)r.Value;
+
+					if (endArgs.Reason == RoundEndReason.TerroristWin ||
+						endArgs.Reason == RoundEndReason.TargetBombed ||
+						endArgs.Reason == RoundEndReason.HostagesRescued ||
+						endArgs.Reason == RoundEndReason.TerroristsEscaped ||
+						endArgs.Reason == RoundEndReason.VIPKilled ||
+						endArgs.Reason == RoundEndReason.CTSurrender ||
+						endArgs.Reason == RoundEndReason.VIPNotEscaped)
+					{
+						endArgs.Winner = Team.Terrorist;
+					}
+					else if (endArgs.Reason == RoundEndReason.CTWin ||
+							 endArgs.Reason == RoundEndReason.BombDefused ||
+							 endArgs.Reason == RoundEndReason.CTStoppedEscape ||
+							 endArgs.Reason == RoundEndReason.HostagesRescued ||
+							 endArgs.Reason == RoundEndReason.TargetSaved ||
+							 endArgs.Reason == RoundEndReason.TerroristsNotEscaped ||
+							 endArgs.Reason == RoundEndReason.TerroristsStopped ||
+							 endArgs.Reason == RoundEndReason.VIPEscaped)
+					{
+						endArgs.Winner = Team.CounterTerrorist;
+					}
+					else
+						endArgs.Winner = Team.Spectate;
+
+					RaiseRoundEnd(endArgs);
+				};
+			};
+
+		}
+
 		#if SAVE_PROP_VALUES
 		[Obsolete("This method is only for debugging-purposes and shuld never be used in production, so you need to live with this warning.")]
 		public string DumpAllEntities()
