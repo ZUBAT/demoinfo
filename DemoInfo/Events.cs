@@ -301,6 +301,18 @@ namespace DemoInfo
 		public int? ProjectileEntityID { get; set; }
 	}
 
+	public class PickupWeaponEventArgs : EventArgs
+	{
+		public Player Player { get; set; }
+		public Equipment Weapon { get; set; }
+	}
+
+	public class DropWeaponEventArgs : EventArgs
+	{
+		public Player Player { get; set; }
+		public Equipment Weapon { get; set; }
+	}
+
 	public class PlayerBindEventArgs : EventArgs
 	{
 		public Player Player {get; set; }
@@ -431,12 +443,21 @@ namespace DemoInfo
 			this.Weapon = EquipmentElement.Unknown;
 		}
 
+		internal Equipment (Equipment eq)
+		{
+			Weapon = eq.Weapon;
+
+			OriginalString = eq.OriginalString;
+			SkinID = eq.SkinID;
+			AmmoInMagazine = eq.AmmoInMagazine;
+			Owner = eq.Owner;
+		}
+
 		internal Equipment (string originalString)
 		{
 			OriginalString = originalString;
 
 			this.Weapon = MapEquipment (originalString);
-
 		}
 
 		internal Equipment (string originalString, string skin)
