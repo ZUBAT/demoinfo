@@ -443,6 +443,11 @@ namespace DemoInfo
 		/// </summary>
 		internal Dictionary<int, byte[]> instanceBaseline = new Dictionary<int, byte[]>();
 
+		///<summary>
+		/// Game State information
+		/// </summary>
+		public GameInfo GameInfo = new GameInfo();
+
 		/// <summary>
 		/// The tickrate *of the demo* (16 for normal GOTV-demos)
 		/// </summary>
@@ -699,7 +704,7 @@ namespace DemoInfo
 
 			HandleInfernos();
 
-			HandleRounds();
+			HandleGameInfo();
 		}
 
 		private void HandleTeamScores()
@@ -1135,12 +1140,13 @@ namespace DemoInfo
 				InfernoOwners.Remove(infEntity.Entity.ID);
 			};
 		}
-		public bool MatchPaused { get; set; }
-		public bool MatchStartedx { get; set; }
-		private void HandleRounds()
+
+		private void HandleGameInfo()
 		{
 			SendTableParser.FindByName("CCSGameRulesProxy").OnNewEntity += (s, ent) =>
 			{
+				Team winner = 0;
+				ent.Entity.FindProperty("cs_gamerules_data.m_iRoundWinStatus").IntRecived += (s1, i) => winner = (Team)i.Value;
 				ent.Entity.FindProperty("cs_gamerules_data.m_eRoundWinReason").IntRecived += (s1, r) =>
 				{
 					if (r.Value == 0)
@@ -1149,34 +1155,32 @@ namespace DemoInfo
 					RoundEndedEventArgs endArgs = new RoundEndedEventArgs();
 					endArgs.Reason = (RoundEndReason)r.Value;
 
-					if (endArgs.Reason == RoundEndReason.TerroristWin ||
-						endArgs.Reason == RoundEndReason.TargetBombed ||
-						endArgs.Reason == RoundEndReason.HostagesRescued ||
-						endArgs.Reason == RoundEndReason.TerroristsEscaped ||
-						endArgs.Reason == RoundEndReason.VIPKilled ||
-						endArgs.Reason == RoundEndReason.CTSurrender ||
-						endArgs.Reason == RoundEndReason.VIPNotEscaped)
-					{
-						endArgs.Winner = Team.Terrorist;
-					}
-					else if (endArgs.Reason == RoundEndReason.CTWin ||
-							 endArgs.Reason == RoundEndReason.BombDefused ||
-							 endArgs.Reason == RoundEndReason.CTStoppedEscape ||
-							 endArgs.Reason == RoundEndReason.HostagesRescued ||
-							 endArgs.Reason == RoundEndReason.TargetSaved ||
-							 endArgs.Reason == RoundEndReason.TerroristsNotEscaped ||
-							 endArgs.Reason == RoundEndReason.TerroristsStopped ||
-							 endArgs.Reason == RoundEndReason.VIPEscaped)
-					{
-						endArgs.Winner = Team.CounterTerrorist;
-					}
-					else
-						endArgs.Winner = Team.Spectate;
+					endArgs.Winner = winner;
 
 					RaiseRoundEnd(endArgs);
 				};
-			};
 
+				ent.Entity.FindProperty("cs_gamerules_data.m_bGameRestart").IntRecived += (s1, r) =>
+				{
+					GameInfo.Restarting = r.Value == 1;
+
+					// set to 1 before restart and then 0 after the restart happens
+					if (r.Value == 0)
+					{
+						RoundEndedEventArgs endArgs = new RoundEndedEventArgs();
+						endArgs.Reason = RoundEndReason.GameStart;
+						endArgs.Winner = Team.Spectate;
+						RaiseRoundEnd(endArgs);
+					}
+				};
+
+				ent.Entity.FindProperty("cs_gamerules_data.m_bMatchWaitingForResume").IntRecived += (s1, b) => GameInfo.Paused = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bHasMatchStarted").IntRecived += (s1, b) => GameInfo.MatchStarted = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bWarmupPeriod").IntRecived += (s1, b) => GameInfo.WarmupPeriod = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bFreezePeriod").IntRecived += (s1, b) => GameInfo.FreezePeriod = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_iRoundTime").IntRecived += (s1, i) => GameInfo.RoundTime = i.Value;
+				ent.Entity.FindProperty("cs_gamerules_data.m_gamePhase").IntRecived += (s1, i) => GameInfo.GamePhase = (GamePhase)i.Value;
+			};
 		}
 
 		#if SAVE_PROP_VALUES
