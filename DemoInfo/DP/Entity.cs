@@ -17,6 +17,11 @@ namespace DemoInfo.DP
 
 		public PropertyEntry[] Props { get; private set; }
 
+		/// <summary>
+		/// Raised after the initial property update after entity is created
+		/// </summary>
+		internal event Action OnInit;
+
 		public Entity(int id, ServerClass serverClass)
 		{
 			this.ID = id;
@@ -103,6 +108,12 @@ namespace DemoInfo.DP
 		public override string ToString()
 		{
 			return ID + ": " + this.ServerClass;
+		}
+
+		internal void RaiseOnInit()
+		{
+			if (OnInit != null)
+				OnInit();
 		}
 	}
 
@@ -416,6 +427,36 @@ namespace DemoInfo.DP
 				else
 					return new Vector();
 			}
+		}
+	}
+
+	internal enum BombState { Held, Planting, Planted, Defusing, Defused, Exploded };
+
+	internal class BombEntity : PositionedEntity
+	{
+		internal BombState BombState = BombState.Held;
+		internal Player Defuser;
+		internal bool Defused { get { return BombState == BombState.Defused; } }
+		internal char Site {
+			get
+			{
+				double distToA = Position.Distance(parser.bombsiteACenter);
+				double distToB = Position.Distance(parser.bombsiteBCenter);
+				return distToA < distToB ? 'A' : 'B';
+			}
+		}
+
+		internal BombEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+		}
+
+		internal BombEventArgs MakeBombArgs()
+		{
+			var args = new BombEventArgs();
+			args.Player = Owner;
+			args.Site = Site;
+
+			return args;
 		}
 	}
 	#region Update-Types
