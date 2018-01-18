@@ -87,6 +87,11 @@ namespace DemoInfo
 		public event EventHandler<BotTakeOverEventArgs> BotTakeOver;
 
 		/// <summary>
+		/// Occurs when freezetime started.
+		/// </summary>
+		public event EventHandler<FreezetimeStartedEventArgs> FreezetimeStarted;
+
+		/// <summary>
 		/// Occurs when freezetime ended. Raised on "round_freeze_end" 
 		/// </summary>
 		public event EventHandler<FreezetimeEndedEventArgs> FreezetimeEnded;
@@ -1174,12 +1179,34 @@ namespace DemoInfo
 					}
 				};
 
-				ent.Entity.FindProperty("cs_gamerules_data.m_bMatchWaitingForResume").IntRecived += (s1, b) => GameInfo.Paused = b.Value == 1;
-				ent.Entity.FindProperty("cs_gamerules_data.m_bHasMatchStarted").IntRecived += (s1, b) => GameInfo.MatchStarted = b.Value == 1;
 				ent.Entity.FindProperty("cs_gamerules_data.m_bWarmupPeriod").IntRecived += (s1, b) => GameInfo.WarmupPeriod = b.Value == 1;
-				ent.Entity.FindProperty("cs_gamerules_data.m_bFreezePeriod").IntRecived += (s1, b) => GameInfo.FreezePeriod = b.Value == 1;
 				ent.Entity.FindProperty("cs_gamerules_data.m_iRoundTime").IntRecived += (s1, i) => GameInfo.RoundTime = i.Value;
 				ent.Entity.FindProperty("cs_gamerules_data.m_gamePhase").IntRecived += (s1, i) => GameInfo.GamePhase = (GamePhase)i.Value;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bMatchWaitingForResume").IntRecived += (s1, b) => GameInfo.Paused = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bHasMatchStarted").IntRecived += (s1, b) =>
+				{
+					if (b.Value == 1)
+					{
+						GameInfo.MatchStarted = true;
+						RaiseMatchStarted();
+					}
+					else
+						GameInfo.MatchStarted = false;
+				};
+
+				ent.Entity.FindProperty("cs_gamerules_data.m_bFreezePeriod").IntRecived += (s1, b) =>
+				{
+					if (b.Value == 1)
+					{
+						GameInfo.FreezePeriod = true;
+						RaiseFreezetimeStarted();
+					}
+					else
+					{
+						GameInfo.FreezePeriod = false;
+						RaiseFreezetimeEnded();
+					}
+				};
 			};
 		}
 
@@ -1288,6 +1315,12 @@ namespace DemoInfo
 		{
 			if (FreezetimeEnded != null)
 				FreezetimeEnded(this, new FreezetimeEndedEventArgs());
+		}
+
+		internal void RaiseFreezetimeStarted()
+		{
+			if (FreezetimeStarted != null)
+				FreezetimeStarted(this, new FreezetimeStartedEventArgs());
 		}
 
 		internal void RaisePlayerKilled(PlayerKilledEventArgs kill)
@@ -1511,6 +1544,8 @@ namespace DemoInfo
 			this.FireNadeStarted = null;
 			this.FireNadeWithOwnerStarted = null;
 			this.FlashNadeExploded = null;
+			this.FreezetimeStarted = null;
+			this.FreezetimeEnded = null;
 			this.HeaderParsed = null;
 			this.MatchStarted = null;
 			this.NadeReachedTarget = null;

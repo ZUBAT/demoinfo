@@ -86,14 +86,8 @@ namespace DemoInfo.DP.Handler
 				parser.RaiseBotTakeOver(botTakeOverArgs);
 			}
 
-			if (eventDescriptor.Name == "begin_new_match")
-				parser.RaiseMatchStarted ();
-
 			if (eventDescriptor.Name == "round_announce_match_start")
 				parser.RaiseRoundAnnounceMatchStarted();
-
-			if (eventDescriptor.Name == "round_freeze_end")
-				parser.RaiseFreezetimeEnded ();
 
 			//if (eventDescriptor.Name != "player_footstep" && eventDescriptor.Name != "weapon_fire" && eventDescriptor.Name != "player_jump") {
 			//	Console.WriteLine (eventDescriptor.Name);

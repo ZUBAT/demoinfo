@@ -76,6 +76,10 @@ namespace DemoInfo
 	{
 	}
 
+	public class FreezetimeStartedEventArgs : EventArgs
+	{
+	}
+
 	public class PlayerTeamEventArgs : EventArgs
 	{
 		public Player Swapped { get; internal set; }
