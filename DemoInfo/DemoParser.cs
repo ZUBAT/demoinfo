@@ -102,6 +102,12 @@ namespace DemoInfo
 		/// </summary>
 		public event EventHandler<PlayerKilledEventArgs> PlayerKilled;
 
+		public event EventHandler<UpdateAttributeEventArgs> UpdateHP;
+		public event EventHandler<UpdateAttributeEventArgs> UpdateArmor;
+		public event EventHandler<UpdateAttributeEventArgs> UpdateMoney;
+		public event EventHandler<UpdateHeldEventArgs> UpdateHeadArmor;
+		public event EventHandler<UpdateHeldEventArgs> UpdateDefuseKit;
+
 		/// <summary>
 		/// Occurs when a player select a team
 		/// </summary>
@@ -899,12 +905,52 @@ namespace DemoInfo
 			};
 
 			//update some stats
-			playerEntity.FindProperty("m_iHealth").IntRecived += (sender, e) => p.HP = e.Value;
-			playerEntity.FindProperty("m_ArmorValue").IntRecived += (sender, e) => p.Armor = e.Value;
-			playerEntity.FindProperty("m_bHasDefuser").IntRecived += (sender, e) => p.HasDefuseKit = e.Value == 1;
-			playerEntity.FindProperty("m_bHasHelmet").IntRecived += (sender, e) => p.HasHelmet = e.Value == 1;
-			playerEntity.FindProperty("localdata.m_Local.m_bDucking").IntRecived += (sender, e) =>  p.IsDucking = e.Value == 1;
-			playerEntity.FindProperty("m_iAccount").IntRecived += (sender, e) => p.Money = e.Value;
+			playerEntity.FindProperty("m_iHealth").IntRecived += (sender, e) =>
+			{
+				p.HP = e.Value;
+				UpdateAttributeEventArgs update = new UpdateAttributeEventArgs();
+				update.Player = p;
+				update.Value = e.Value;
+
+				RaiseUpdateHP(update);
+			};
+			playerEntity.FindProperty("m_ArmorValue").IntRecived += (sender, e) =>
+			{
+				p.Armor = e.Value;
+				UpdateAttributeEventArgs update = new UpdateAttributeEventArgs();
+				update.Player = p;
+				update.Value = e.Value;
+
+				RaiseUpdateArmor(update);
+			};
+			playerEntity.FindProperty("m_bHasDefuser").IntRecived += (sender, e) =>
+			{
+				p.HasDefuseKit = e.Value == 1;
+				UpdateHeldEventArgs update = new UpdateHeldEventArgs();
+				update.Player = p;
+				update.Held = e.Value == 1;
+
+				RaiseUpdateDefuseKit(update);
+			};
+			playerEntity.FindProperty("m_bHasHelmet").IntRecived += (sender, e) =>
+			{
+				p.HasHelmet = e.Value == 1;
+				UpdateHeldEventArgs update = new UpdateHeldEventArgs();
+				update.Player = p;
+				update.Held = e.Value == 1;
+
+				RaiseUpdateHeadArmor(update);
+			};
+			playerEntity.FindProperty("localdata.m_Local.m_bDucking").IntRecived += (sender, e) => p.IsDucking = e.Value == 1;
+			playerEntity.FindProperty("m_iAccount").IntRecived += (sender, e) =>
+			{
+				p.Money = e.Value;
+				UpdateAttributeEventArgs update = new UpdateAttributeEventArgs();
+				update.Player = p;
+				update.Value = e.Value;
+
+				RaiseUpdateMoney(update);
+			};
 			playerEntity.FindProperty("m_angEyeAngles[1]").FloatRecived += (sender, e) => p.ViewDirectionX = e.Value;
 			playerEntity.FindProperty("m_angEyeAngles[0]").FloatRecived += (sender, e) => p.ViewDirectionY = e.Value;
 			playerEntity.FindProperty("m_flFlashDuration").FloatRecived += (sender, e) => p.FlashDuration = e.Value;
@@ -1252,6 +1298,32 @@ namespace DemoInfo
 				PlayerHurt(this, hurt);
 		}
 
+		internal void RaiseUpdateHP(UpdateAttributeEventArgs hp)
+		{
+			if (UpdateHP != null)
+				UpdateHP(this, hp);
+		}
+		internal void RaiseUpdateArmor(UpdateAttributeEventArgs armor)
+		{
+			if (UpdateArmor != null)
+				UpdateArmor(this, armor);
+		}
+		internal void RaiseUpdateMoney(UpdateAttributeEventArgs money)
+		{
+			if (UpdateMoney != null)
+				UpdateMoney(this, money);
+		}
+		internal void RaiseUpdateHeadArmor(UpdateHeldEventArgs headarmor)
+		{
+			if (UpdateHeadArmor != null)
+				UpdateHeadArmor(this, headarmor);
+		}
+		internal void RaiseUpdateDefuseKit(UpdateHeldEventArgs kit)
+		{
+			if (UpdateDefuseKit != null)
+				UpdateDefuseKit(this, kit);
+		}
+
 		internal void RaiseBlind(BlindEventArgs blind)
 		{
 			if (Blind != null)
@@ -1469,6 +1541,11 @@ namespace DemoInfo
 			this.SmokeNadeEnded = null;
 			this.SmokeNadeStarted = null;
 			this.WeaponFired = null;
+			this.UpdateHP = null;
+			this.UpdateArmor = null;
+			this.UpdateMoney = null;
+			this.UpdateHeadArmor = null;
+			this.UpdateDefuseKit = null;
 
 			Players.Clear ();
 		}
