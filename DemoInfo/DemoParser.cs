@@ -90,6 +90,11 @@ namespace DemoInfo
 		public event EventHandler<BotTakeOverEventArgs> BotTakeOver;
 
 		/// <summary>
+		/// Occurs when freezetime started.
+		/// </summary>
+		public event EventHandler<FreezetimeStartedEventArgs> FreezetimeStarted;
+
+		/// <summary>
 		/// Occurs when freezetime ended. Raised on "round_freeze_end" 
 		/// </summary>
 		public event EventHandler<FreezetimeEndedEventArgs> FreezetimeEnded;
@@ -435,6 +440,11 @@ namespace DemoInfo
 		/// </summary>
 		internal Dictionary<int, byte[]> instanceBaseline = new Dictionary<int, byte[]>();
 
+		///<summary>
+		/// Game State information
+		/// </summary>
+		public GameInfo GameInfo = new GameInfo();
+
 		/// <summary>
 		/// The tickrate *of the demo* (16 for normal GOTV-demos)
 		/// </summary>
@@ -683,7 +693,11 @@ namespace DemoInfo
 
 			HandleWeapons ();
 
+			HandleInfernos();
+
 			SetCellWidth();
+
+			HandleGameInfo();
 		}
 
 		private void HandleTeamScores()
@@ -1099,7 +1113,6 @@ namespace DemoInfo
 					trigger.Max = vector.Value;
 				};
 			};
-
 		}
 
 		private void SetCellWidth()
@@ -1119,6 +1132,70 @@ namespace DemoInfo
 				cellX * cellWidth - MAX_COORD_INTEGER,
 				cellY * cellWidth - MAX_COORD_INTEGER,
 				cellZ * cellWidth - MAX_COORD_INTEGER);
+		}
+
+		private void HandleGameInfo()
+		{
+			SendTableParser.FindByName("CCSGameRulesProxy").OnNewEntity += (s, ent) =>
+			{
+				Team winner = 0;
+				ent.Entity.FindProperty("cs_gamerules_data.m_iRoundWinStatus").IntRecived += (s1, i) => winner = (Team)i.Value;
+				ent.Entity.FindProperty("cs_gamerules_data.m_eRoundWinReason").IntRecived += (s1, r) =>
+				{
+					if (r.Value == 0)
+						return;
+
+					RoundEndedEventArgs endArgs = new RoundEndedEventArgs();
+					endArgs.Reason = (RoundEndReason)r.Value;
+
+					endArgs.Winner = winner;
+
+					RaiseRoundEnd(endArgs);
+				};
+
+				ent.Entity.FindProperty("cs_gamerules_data.m_bGameRestart").IntRecived += (s1, r) =>
+				{
+					GameInfo.Restarting = r.Value == 1;
+
+					// set to 1 before restart and then 0 after the restart happens
+					if (r.Value == 0)
+					{
+						RoundEndedEventArgs endArgs = new RoundEndedEventArgs();
+						endArgs.Reason = RoundEndReason.GameStart;
+						endArgs.Winner = Team.Spectate;
+						RaiseRoundEnd(endArgs);
+					}
+				};
+
+				ent.Entity.FindProperty("cs_gamerules_data.m_bWarmupPeriod").IntRecived += (s1, b) => GameInfo.WarmupPeriod = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_iRoundTime").IntRecived += (s1, i) => GameInfo.RoundTime = i.Value;
+				ent.Entity.FindProperty("cs_gamerules_data.m_gamePhase").IntRecived += (s1, i) => GameInfo.GamePhase = (GamePhase)i.Value;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bMatchWaitingForResume").IntRecived += (s1, b) => GameInfo.Paused = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_bHasMatchStarted").IntRecived += (s1, b) =>
+				{
+					if (b.Value == 1)
+					{
+						GameInfo.MatchStarted = true;
+						RaiseMatchStarted();
+					}
+					else
+						GameInfo.MatchStarted = false;
+				};
+
+				ent.Entity.FindProperty("cs_gamerules_data.m_bFreezePeriod").IntRecived += (s1, b) =>
+				{
+					if (b.Value == 1)
+					{
+						GameInfo.FreezePeriod = true;
+						RaiseFreezetimeStarted();
+					}
+					else
+					{
+						GameInfo.FreezePeriod = false;
+						RaiseFreezetimeEnded();
+					}
+				};
+			};
 		}
 
 		#if SAVE_PROP_VALUES
@@ -1226,6 +1303,12 @@ namespace DemoInfo
 		{
 			if (FreezetimeEnded != null)
 				FreezetimeEnded(this, new FreezetimeEndedEventArgs());
+		}
+
+		internal void RaiseFreezetimeStarted()
+		{
+			if (FreezetimeStarted != null)
+				FreezetimeStarted(this, new FreezetimeStartedEventArgs());
 		}
 
 		internal void RaisePlayerKilled(PlayerKilledEventArgs kill)
@@ -1439,6 +1522,8 @@ namespace DemoInfo
 			this.FireNadeEnded = null;
 			this.FireNadeStarted = null;
 			this.FlashNadeExploded = null;
+			this.FreezetimeStarted = null;
+			this.FreezetimeEnded = null;
 			this.HeaderParsed = null;
 			this.MatchStarted = null;
 			this.NadeReachedTarget = null;

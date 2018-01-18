@@ -314,6 +314,19 @@ namespace DemoInfo
 		}
 	}
 
+	public enum GamePhase { FirstHalf=2, SecondHalf, HalfTime, PostGame };
+
+	public class GameInfo
+	{
+		public bool WarmupPeriod { get; internal set; }
+		public bool MatchStarted { get; internal set; }
+		public bool Paused { get; internal set; }
+		public bool FreezePeriod { get; internal set; }
+		public bool Restarting { get; internal set; }
+		public int RoundTime { get; internal set; }
+		public GamePhase GamePhase { get; internal set; }
+	}
+
 	/// <summary>
 	/// The demo-commands as given by Valve.
 	/// </summary>
