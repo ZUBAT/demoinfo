@@ -146,6 +146,11 @@ namespace DemoInfo.DP.Handler
 				hurt.ArmorDamage = (int)data ["dmg_armor"];
 				hurt.Hitgroup = (Hitgroup)((int)data ["hitgroup"]);
 
+				if (parser.EventDmgTaken.ContainsKey(hurt.Player))
+					parser.EventDmgTaken[hurt.Player] += hurt.HealthDamage;
+				else
+					parser.EventDmgTaken[hurt.Player] = hurt.HealthDamage;
+
 				hurt.Weapon = new Equipment ((string)data ["weapon"], "");
 
 				if (hurt.Attacker != null && hurt.Weapon.Class != EquipmentClass.Grenade && hurt.Attacker.Weapons.Any ()) {

@@ -612,6 +612,8 @@ namespace DemoInfo
 				RaiseFireWithOwnerStart(fireTup.Item2);
 			}
 
+			VerifyDamage();
+
 			if (b) {
 				if (TickDone != null)
 					TickDone(this, new TickDoneEventArgs());
@@ -811,6 +813,10 @@ namespace DemoInfo
 			};
 		}
 
+		Dictionary<Player, int> hpChange = new Dictionary<Player, int>();
+		Dictionary<Player, int> dmgChange = new Dictionary<Player, int>();
+		Dictionary<Player, int> roundDmg = new Dictionary<Player, int>();
+		internal Dictionary<Player, int> EventDmgTaken = new Dictionary<Player, int>();
 		private void HandlePlayers()
 		{
 			SendTableParser.FindByName("CCSPlayer").OnNewEntity += (object sender, EntityCreatedEventArgs e) => HandleNewPlayer (e.Entity);
@@ -911,7 +917,12 @@ namespace DemoInfo
 			};
 
 			//update some stats
-			playerEntity.FindProperty("m_iHealth").IntRecived += (sender, e) => p.HP = e.Value;
+			playerEntity.FindProperty("m_iHealth").IntRecived += (sender, e) =>
+			{
+				if (e.Value != 100)
+					hpChange[p] = p.HP - e.Value;
+				p.HP = e.Value;
+			};
 			playerEntity.FindProperty("m_ArmorValue").IntRecived += (sender, e) => p.Armor = e.Value;
 			playerEntity.FindProperty("m_bHasDefuser").IntRecived += (sender, e) => p.HasDefuseKit = e.Value == 1;
 			playerEntity.FindProperty("m_bHasHelmet").IntRecived += (sender, e) => p.HasHelmet = e.Value == 1;
@@ -931,6 +942,23 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_unCurrentEquipmentValue").IntRecived += (sender, e) => p.CurrentEquipmentValue = e.Value;
 			playerEntity.FindProperty("m_unRoundStartEquipmentValue").IntRecived += (sender, e) => p.RoundStartEquipmentValue = e.Value;
 			playerEntity.FindProperty("m_unFreezetimeEndEquipmentValue").IntRecived += (sender, e) => p.FreezetimeEndEquipmentValue = e.Value;
+
+			for(int i = 0; i < 30; i++)
+			{
+				int iForTheMethod = i;
+				string iString = i.ToString().PadLeft(3, '0');
+
+				playerEntity.FindProperty("m_iMatchStats_Damage." + iString).IntRecived += (sender, e) =>
+				{
+					if (roundDmg.ContainsKey(p))
+						dmgChange[p] = e.Value - roundDmg[p];
+					else
+						dmgChange[p] = e.Value;
+
+					roundDmg[p] = e.Value;
+				};
+
+			}
 
 			//Weapon attribution
 			string weaponPrefix = "m_hMyWeapons.";
@@ -979,7 +1007,40 @@ namespace DemoInfo
 					p.AmmoLeft [iForTheMethod] = e.Value;
 				};
 			}
+		}
 
+		private void VerifyDamage()
+		{
+			if (!(hpChange.Count > 0 && dmgChange.Count > 0))
+				return;
+
+			if (hpChange.Count == 1)
+			{
+				var hpc = hpChange.First();
+				foreach (var dmg in dmgChange)
+				{
+					var hurtArgs = new PlayerHurtEventArgs();
+					hurtArgs.Player = hpc.Key;
+					hurtArgs.HealthDamage = dmg.Value;
+					hurtArgs.Attacker = dmg.Key;
+					RaisePlayerHurt(hurtArgs);
+				}
+			}
+			else if (dmgChange.Count == 1)
+			{
+				var dmc = dmgChange.First();
+				foreach (var hp in hpChange)
+				{
+					var hurtArgs = new PlayerHurtEventArgs();
+					hurtArgs.Player = hp.Key;
+					hurtArgs.HealthDamage = hp.Value;
+					hurtArgs.Attacker = dmc.Key;
+				}
+			}
+
+			// no way to figure out who shot whom with 100% accuracy if they're both more than 1
+			hpChange.Clear();
+			dmgChange.Clear();
 
 		}
 
