@@ -17,6 +17,11 @@ namespace DemoInfo.DP
 
 		public PropertyEntry[] Props { get; private set; }
 
+		/// <summary>
+		/// Raised after the initial property update after entity is created
+		/// </summary>
+		internal event Action OnInit;
+
 		public Entity(int id, ServerClass serverClass)
 		{
 			this.ID = id;
@@ -103,6 +108,12 @@ namespace DemoInfo.DP
 		public override string ToString()
 		{
 			return ID + ": " + this.ServerClass;
+		}
+
+		internal void RaiseOnInit()
+		{
+			if (OnInit != null)
+				OnInit();
 		}
 	}
 
@@ -354,6 +365,100 @@ namespace DemoInfo.DP
 		}
 	}
 
+	internal class OwnedEntity
+	{
+		internal int? EntityID { get; set; }
+		internal Player Owner { get; set; }
+
+		protected DemoParser parser;
+
+		public OwnedEntity(DemoParser _parser)
+		{
+			parser = _parser;
+		}
+		public OwnedEntity(Entity ent, DemoParser _parser)
+		{
+			parser = _parser;
+			EntityID = ent.ID;
+			subToProps(ent);
+		}
+
+		internal virtual void subToProps(Entity ent)
+		{
+			ent.FindProperty("m_hOwnerEntity").IntRecived += (s, handleID) =>
+			{
+				int playerEntityID = handleID.Value & DemoParser.INDEX_MASK;
+				var infos = parser.PlayerInformations;
+				if (playerEntityID < infos.Length && infos[playerEntityID - 1] != null)
+					Owner = infos[playerEntityID - 1];
+			};
+		}
+	}
+
+	internal class PositionedEntity : OwnedEntity
+	{
+		virtual internal Vector Origin { get; set; }
+		internal int CellX { get; set; }
+		internal int CellY { get; set; }
+		internal int CellZ { get; set; }
+
+		public PositionedEntity(DemoParser parser) : base(parser) { }
+		public PositionedEntity(Entity ent, DemoParser parser)
+			: base(ent, parser)
+		{
+			subToProps(ent);
+		}
+
+		internal override void subToProps(Entity ent)
+		{
+			base.subToProps(ent);
+			ent.FindProperty("m_cellX").IntRecived += (s2, cell) => CellX = cell.Value;
+			ent.FindProperty("m_cellY").IntRecived += (s2, cell) => CellY = cell.Value;
+			ent.FindProperty("m_cellZ").IntRecived += (s2, cell) => CellZ = cell.Value;
+			ent.FindProperty("m_vecOrigin").VectorRecived += (s2, vector) => Origin = vector.Value;
+		}
+
+		internal Vector Position
+		{
+			get
+			{
+				if (Origin != null)
+					return parser.CellsToCoords(CellX, CellY, CellZ) + Origin;
+				else
+					return new Vector();
+			}
+		}
+	}
+
+	internal enum BombState { Held, Planting, Planted, Defusing, Defused, Exploded };
+
+	internal class BombEntity : PositionedEntity
+	{
+		internal BombState BombState = BombState.Held;
+		internal Player Defuser;
+		internal bool Defused { get { return BombState == BombState.Defused; } }
+		internal char Site {
+			get
+			{
+				double distToA = Position.Distance(parser.bombsiteACenter);
+				double distToB = Position.Distance(parser.bombsiteBCenter);
+				return distToA < distToB ? 'A' : 'B';
+			}
+		}
+
+		internal BombEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+		}
+
+		internal BombEventArgs MakeBombArgs()
+		{
+			var args = new BombEventArgs();
+			args.Player = Owner;
+			args.Site = Site;
+
+			return args;
+		}
+	}
 	#region Update-Types
 	class PropertyUpdateEventArgs<T> : EventArgs
 	{

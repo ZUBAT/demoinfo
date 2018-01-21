@@ -134,6 +134,12 @@ namespace DemoInfo.DP.Handler
 
 				parser.RaisePlayerKilled(kill);
 				break;
+			case "player_falldamage":
+				data = MapData(eventDescriptor, rawEvent);
+				var fallenPlayer = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
+				if (fallenPlayer != null)
+					fallenPlayer.IsFallen = true;
+				break;
 			case "player_hurt":
 				data = MapData (eventDescriptor, rawEvent);
 
@@ -155,6 +161,44 @@ namespace DemoInfo.DP.Handler
 
 				if (hurt.Attacker != null && hurt.Weapon.Class != EquipmentClass.Grenade && hurt.Attacker.Weapons.Any ()) {
 					hurt.Weapon = hurt.Attacker.ActiveWeapon;
+				}
+
+				if ((int)data["attacker"] == 0 && (string)data["weapon"] == "")
+				{
+					hurt.Weapon = new Equipment();
+
+					if (hurt.Player.IsFallen)
+					{
+						// It's obviously possible for a player to take fall damage and bomb damage on the same tick,
+						// but it would require another variable to hold state and there's no way to definitively
+						// tell which damage is which.
+
+						hurt.Attacker = hurt.Player;
+						hurt.Weapon.Weapon = EquipmentElement.World;
+						hurt.Player.IsFallen = false;
+					}
+					else
+					{
+						// player was hurt by bomb
+						hurt.Attacker = parser.PlantedBomb.Owner;
+						hurt.Weapon.Weapon = EquipmentElement.Bomb;
+					}
+
+					parser.RaisePlayerHurt(hurt);
+
+					if (hurt.Health == 0)
+					{
+						// deaths by bomb don't trigger player_death event
+						// Fairly certain that falling deaths always result in "worldspawn" weapon
+						PlayerKilledEventArgs bombKill = new PlayerKilledEventArgs();
+
+						bombKill.Victim = hurt.Player;
+						bombKill.Killer = hurt.Attacker;
+						bombKill.Headshot = false;
+						bombKill.Weapon = hurt.Weapon;
+						parser.RaisePlayerKilled(bombKill);
+					}
+					break;
 				}
 
 				parser.RaisePlayerHurt (hurt);
@@ -226,7 +270,7 @@ namespace DemoInfo.DP.Handler
 				parser.RaiseFireEnd(fireEndArgs);
 				break;
 				#endregion
-
+			
 			case "player_connect":
 				data = MapData (eventDescriptor, rawEvent);
 
@@ -295,71 +339,6 @@ namespace DemoInfo.DP.Handler
 				playerTeamEvent.Silent = (bool)data["silent"];
 
 				parser.RaisePlayerTeam(playerTeamEvent);
-				break;
-			case "bomb_beginplant": //When the bomb is starting to get planted
-			case "bomb_abortplant": //When the bomb planter stops planting the bomb
-			case "bomb_planted": //When the bomb has been planted
-			case "bomb_defused": //When the bomb has been defused
-			case "bomb_exploded": //When the bomb has exploded
-				data = MapData(eventDescriptor, rawEvent);
-
-				var bombEventArgs = new BombEventArgs();
-                bombEventArgs.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-
-				int site = (int)data["site"];
-
-				if (site == parser.bombsiteAIndex) {
-					bombEventArgs.Site = 'A';
-				} else if (site == parser.bombsiteBIndex) {
-					bombEventArgs.Site = 'B';
-				} else {
-					var relevantTrigger = parser.triggers.Single(a => a.Index == site);
-					if (relevantTrigger.Contains(parser.bombsiteACenter)) {
-						//planted at A.
-						bombEventArgs.Site = 'A';
-						parser.bombsiteAIndex = site;
-					} else {
-						//planted at B.
-						bombEventArgs.Site = 'B';
-						parser.bombsiteBIndex = site;
-					} 
-				}
-
-
-
-
-				switch (eventDescriptor.Name) {
-				case "bomb_beginplant":
-					parser.RaiseBombBeginPlant(bombEventArgs);
-					break;
-				case "bomb_abortplant":
-					parser.RaiseBombAbortPlant(bombEventArgs);
-					break;
-				case "bomb_planted":
-					parser.RaiseBombPlanted(bombEventArgs);
-					break;
-				case "bomb_defused":
-					parser.RaiseBombDefused(bombEventArgs);
-					break;
-				case "bomb_exploded":
-					parser.RaiseBombExploded(bombEventArgs);
-					break;
-				}
-
-				break;
-			case "bomb_begindefuse":
-				data = MapData(eventDescriptor, rawEvent);
-				var e = new BombDefuseEventArgs();
-                e.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-				e.HasKit = (bool)data["haskit"];
-				parser.RaiseBombBeginDefuse(e);
-				break;
-			case "bomb_abortdefuse":
-				data = MapData(eventDescriptor, rawEvent);
-				var e2 = new BombDefuseEventArgs();
-                e2.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-				e2.HasKit = e2.Player.HasDefuseKit;
-				parser.RaiseBombAbortDefuse(e2);
 				break;
 			}
 		}

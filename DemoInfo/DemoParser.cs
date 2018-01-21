@@ -27,6 +27,11 @@ namespace DemoInfo
 		const int MAXPLAYERS = 64;
 		const int MAXWEAPONS = 64;
 
+		private const int MAX_COORD_INTEGER = 16384;
+		private int cellWidth;
+
+		internal BombEntity PlantedBomb;
+
 
 		#region Events
 		/// <summary>
@@ -102,6 +107,12 @@ namespace DemoInfo
 		public event EventHandler<TickDoneEventArgs> TickDone;
 
 		/// <summary>
+		/// Occurs before the TickDone event is raised.  Used internally so that work can be done after everything else,
+		/// but before user's TickDone handle.
+		/// </summary>
+		internal event EventHandler<EventArgs> PreTickDone;
+
+		/// <summary>
 		/// This is raised when a player is killed. Not that the killer might be dead by the time is raised (e.g. nade-kills),
 		/// also note that the killed player is still alive when this is killed
 		/// </summary>
@@ -152,6 +163,7 @@ namespace DemoInfo
 		/// Hint: Raised at the end of inferno_startburn tick instead of exactly when the event is parsed
 		/// </summary>
 		public event EventHandler<FireEventArgs> FireNadeWithOwnerStarted;
+
 
 		/// <summary>
 		/// Occurs when fire nade ended.
@@ -430,8 +442,6 @@ namespace DemoInfo
 		/// Holds inferno_startburn event args so they can be matched with player
 		/// </summary>
 		internal Queue<Tuple<int, FireEventArgs>> GEH_StartBurns = new Queue<Tuple<int, FireEventArgs>>();
-
-
 		// These could be Dictionary<int, RecordedPropertyUpdate[]>, but I was too lazy to
 		// define that class. Also: It doesn't matter anyways, we always have to cast.
 
@@ -615,6 +625,8 @@ namespace DemoInfo
 			VerifyDamage();
 
 			if (b) {
+				if (PreTickDone != null)
+					PreTickDone(this, new EventArgs());
 				if (TickDone != null)
 					TickDone(this, new TickDoneEventArgs());
 			}
@@ -712,6 +724,8 @@ namespace DemoInfo
 			HandleInfernos();
 
 			HandleGameInfo();
+
+			SetCellWidth();
 		}
 
 		private void HandleTeamScores()
@@ -960,6 +974,49 @@ namespace DemoInfo
 
 			}
 
+			playerEntity.FindProperty("m_bIsDefusing").IntRecived += (sender, e) => {
+				bool val = e.Value == 1;
+
+				// Possible for it to be updated multiple times in consecutive ticks
+				if (p.IsDefusing == val)
+					return;
+
+				if (val)
+				{
+					PlantedBomb.BombState = BombState.Defusing;
+					PlantedBomb.Defuser = p;
+					p.IsDefusing = true;
+
+					var beginArgs = new BombDefuseEventArgs();
+					beginArgs.HasKit = p.HasDefuseKit;
+					beginArgs.Player = p;
+					RaiseBombBeginDefuse(beginArgs);
+				}
+				else
+				{
+					EventHandler<EventArgs> lambda = null;
+					lambda = (s2, ee) =>
+					{
+						// We won't know whether it's an abort or a defuse until the bomb gets checked
+						// which is after player entities
+						p.IsDefusing = false;
+						if (!PlantedBomb.Defused)
+						{
+							PlantedBomb.BombState = BombState.Planted;
+							PlantedBomb.Defuser = null;
+
+							var abortArgs = new BombDefuseEventArgs();
+							abortArgs.Player = p;
+							abortArgs.HasKit = p.HasDefuseKit;
+							RaiseBombAbortDefuse(abortArgs);
+						}
+						PreTickDone -= lambda;
+					};
+
+					PreTickDone += lambda;
+				}
+			};
+
 			//Weapon attribution
 			string weaponPrefix = "m_hMyWeapons.";
 
@@ -1161,7 +1218,6 @@ namespace DemoInfo
 		    }
 		}
 
-		internal List<BoundingBoxInformation> triggers = new List<BoundingBoxInformation>();
 		private void HandleBombSites()
 		{
 			SendTableParser.FindByName("CCSPlayerResource").OnNewEntity += (s1, newResource) => {
@@ -1173,21 +1229,91 @@ namespace DemoInfo
 				};
 			};
 
-			SendTableParser.FindByName("CBaseTrigger").OnNewEntity += (s1, newResource) => {
+			SendTableParser.FindByName("CPlantedC4").OnNewEntity += (s, ent) =>
+			{
+				// Sometimes there's PlantedC4 entity on the first tick of a demo that doesn't actually exist in-game.
+				// In the demos where this has happened so far it has m_bBombTicking set to 0
+				int initTick = CurrentTick;
+				bool badBomb = false;
 
-				BoundingBoxInformation trigger = new BoundingBoxInformation(newResource.Entity.ID);
-				triggers.Add(trigger);
+				PlantedBomb = new BombEntity(ent.Entity, this);
 
-				newResource.Entity.FindProperty("m_Collision.m_vecMins").VectorRecived += (s2, vector) => {
-					trigger.Min = vector.Value;
+				ent.Entity.OnInit += () => {
+					if (badBomb)
+						return;
+
+					PlantedBomb.BombState = BombState.Planted;
+					RaiseBombPlanted(PlantedBomb.MakeBombArgs());
 				};
 
-				newResource.Entity.FindProperty("m_Collision.m_vecMaxs").VectorRecived += (s3, vector) => {
-					trigger.Max = vector.Value;
+				ent.Entity.FindProperty("m_bBombDefused").IntRecived += (s1, def) =>
+				{
+					if (badBomb)
+						return;
+
+					if (def.Value == 1)
+						PlantedBomb.BombState = BombState.Defused;
+
+					if (PlantedBomb.Defused)
+					{
+						var defuseArgs = PlantedBomb.MakeBombArgs();
+						defuseArgs.Player = PlantedBomb.Defuser;
+						RaiseBombDefused(defuseArgs);
+					}
+				};
+
+				ent.Entity.FindProperty("m_bBombTicking").IntRecived += (s1, t) =>
+				{
+					bool ticking = t.Value == 1;
+					if (ticking)
+						return;
+
+					if (CurrentTick == initTick)
+					{
+						badBomb = true;
+						PlantedBomb = null;
+						return;
+					}
+
+					// m_bBombDefused field is after m_bBombTicking, so we need to wait,
+					// This function runs once at the end of the tick and then unsubscribes itself
+					EventHandler<EventArgs> lambda = null;
+					lambda = (s2, e) =>
+					{
+						if (!PlantedBomb.Defused)
+						{
+							RaiseBombExploded(PlantedBomb.MakeBombArgs());
+							PlantedBomb.BombState = BombState.Exploded;
+						}
+
+						PreTickDone -= lambda;
+					};
+					PreTickDone += lambda;
 				};
 			};
 
+			SendTableParser.FindByName("CC4").OnNewEntity += (s, ent) =>
+			{
+				var bomb = new BombEntity(ent.Entity, this);
+
+				ent.Entity.FindProperty("m_bStartedArming").IntRecived += (s1, arm) =>
+				{
+					bool arming = arm.Value == 1;
+
+					if (arming)
+					{
+						bomb.BombState = BombState.Planting;
+						RaiseBombBeginPlant(bomb.MakeBombArgs());
+					}
+					else if (bomb.BombState == BombState.Planting)
+					{
+						RaiseBombAbortPlant(bomb.MakeBombArgs());
+						bomb.BombState = BombState.Held;
+					}
+				};
+			};
 		}
+
 
 		internal Dictionary<int, Player> InfernoOwners = new Dictionary<int, Player>();
 		private void HandleInfernos()
@@ -1267,6 +1393,25 @@ namespace DemoInfo
 						GameInfo.FreezePeriod = false;
 						RaiseFreezetimeEnded();
 					}
+				};
+			};
+		}
+
+		internal Vector CellsToCoords(int cellX, int cellY, int cellZ)
+		{
+			return new Vector(
+				cellX * cellWidth - MAX_COORD_INTEGER,
+				cellY * cellWidth - MAX_COORD_INTEGER,
+				cellZ * cellWidth - MAX_COORD_INTEGER);
+		}
+
+		private void SetCellWidth()
+		{
+			SendTableParser.FindByName("CBaseEntity").OnNewEntity += (s, baseEnt) =>
+			{
+				baseEnt.Entity.FindProperty("m_cellbits").IntRecived += (s2, bitnum) =>
+				{
+					cellWidth = 1 << bitnum.Value;
 				};
 			};
 		}
@@ -1591,6 +1736,7 @@ namespace DemoInfo
 			}
 
 			this.TickDone = null;
+			this.PreTickDone = null;
 			this.BombAbortDefuse = null;
 			this.BombAbortPlant = null;
 			this.BombBeginDefuse = null;
@@ -1603,7 +1749,6 @@ namespace DemoInfo
 			this.ExplosiveNadeExploded = null;
 			this.FireNadeEnded = null;
 			this.FireNadeStarted = null;
-			this.FireNadeWithOwnerStarted = null;
 			this.FlashNadeExploded = null;
 			this.FreezetimeStarted = null;
 			this.FreezetimeEnded = null;

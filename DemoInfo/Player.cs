@@ -41,6 +41,8 @@ namespace DemoInfo
 
 		public bool IsDucking { get; set; }
 
+		public bool IsFallen { get; set; }
+
 		internal Entity Entity;
 
 		public bool Disconnected { get; set; }
@@ -66,6 +68,8 @@ namespace DemoInfo
 		public Team Team { get; set; }
 
 		public bool HasDefuseKit { get; set; }
+
+		public bool IsDefusing { get; set; }
 
 		public bool HasHelmet { get; set; }
 
