@@ -181,7 +181,17 @@ namespace DemoInfo.DP.Handler
 
 				parser.RaisePlayerHurt (hurt);
 				break;
+			case "player_falldamage":
+				data = MapData(eventDescriptor, rawEvent);
+				PlayerHurtEventArgs fallHurt = new PlayerHurtEventArgs();
+				fallHurt.Player = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
+				fallHurt.HealthDamage = (int)data["dmg_health"];
+				fallHurt.Health = Math.Max(fallHurt.Player.HP - fallHurt.HealthDamage, 0);
+				fallHurt.Weapon = new Equipment();
+				fallHurt.Weapon.Weapon = EquipmentElement.World;
 
+				parser.RaisePlayerHurt(fallHurt);
+				break;
 				#region Nades
 			case "player_blind":
 				data = MapData(eventDescriptor, rawEvent);
