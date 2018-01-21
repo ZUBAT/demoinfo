@@ -30,7 +30,7 @@ namespace DemoInfo
 		private const int MAX_COORD_INTEGER = 16384;
 		private int cellWidth;
 
-		private BombEntity plantedBomb;
+		internal BombEntity PlantedBomb;
 
 
 		#region Events
@@ -596,8 +596,9 @@ namespace DemoInfo
 				}
 			}
 
-			PreTickDone(this, new EventArgs());
 			if (b) {
+				if (PreTickDone != null)
+					PreTickDone(this, new EventArgs());
 				if (TickDone != null)
 					TickDone(this, new TickDoneEventArgs());
 			}
@@ -924,8 +925,8 @@ namespace DemoInfo
 
 				if (val)
 				{
-					plantedBomb.BombState = BombState.Defusing;
-					plantedBomb.Defuser = p;
+					PlantedBomb.BombState = BombState.Defusing;
+					PlantedBomb.Defuser = p;
 					p.IsDefusing = true;
 
 					var beginArgs = new BombDefuseEventArgs();
@@ -941,10 +942,10 @@ namespace DemoInfo
 						// We won't know whether it's an abort or a defuse until the bomb gets checked
 						// which is after player entities
 						p.IsDefusing = false;
-						if (!plantedBomb.Defused)
+						if (!PlantedBomb.Defused)
 						{
-							plantedBomb.BombState = BombState.Planted;
-							plantedBomb.Defuser = null;
+							PlantedBomb.BombState = BombState.Planted;
+							PlantedBomb.Defuser = null;
 
 							var abortArgs = new BombDefuseEventArgs();
 							abortArgs.Player = p;
@@ -1144,14 +1145,14 @@ namespace DemoInfo
 				int initTick = CurrentTick;
 				bool badBomb = false;
 
-				plantedBomb = new BombEntity(ent.Entity, this);
+				PlantedBomb = new BombEntity(ent.Entity, this);
 
 				ent.Entity.OnInit += () => {
 					if (badBomb)
 						return;
 
-					plantedBomb.BombState = BombState.Planted;
-					RaiseBombPlanted(plantedBomb.MakeBombArgs());
+					PlantedBomb.BombState = BombState.Planted;
+					RaiseBombPlanted(PlantedBomb.MakeBombArgs());
 				};
 
 				ent.Entity.FindProperty("m_bBombDefused").IntRecived += (s1, def) =>
@@ -1160,12 +1161,12 @@ namespace DemoInfo
 						return;
 
 					if (def.Value == 1)
-						plantedBomb.BombState = BombState.Defused;
+						PlantedBomb.BombState = BombState.Defused;
 
-					if (plantedBomb.Defused)
+					if (PlantedBomb.Defused)
 					{
-						var defuseArgs = plantedBomb.MakeBombArgs();
-						defuseArgs.Player = plantedBomb.Defuser;
+						var defuseArgs = PlantedBomb.MakeBombArgs();
+						defuseArgs.Player = PlantedBomb.Defuser;
 						RaiseBombDefused(defuseArgs);
 					}
 				};
@@ -1179,7 +1180,7 @@ namespace DemoInfo
 					if (CurrentTick == initTick)
 					{
 						badBomb = true;
-						plantedBomb = null;
+						PlantedBomb = null;
 						return;
 					}
 
@@ -1188,10 +1189,10 @@ namespace DemoInfo
 					EventHandler<EventArgs> lambda = null;
 					lambda = (s2, e) =>
 					{
-						if (!plantedBomb.Defused)
+						if (!PlantedBomb.Defused)
 						{
-							RaiseBombExploded(plantedBomb.MakeBombArgs());
-							plantedBomb.BombState = BombState.Exploded;
+							RaiseBombExploded(PlantedBomb.MakeBombArgs());
+							PlantedBomb.BombState = BombState.Exploded;
 						}
 
 						PreTickDone -= lambda;

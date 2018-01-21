@@ -161,6 +161,12 @@ namespace DemoInfo.DP.Handler
 
 				parser.RaisePlayerKilled(kill);
 				break;
+			case "player_falldamage":
+				data = MapData(eventDescriptor, rawEvent);
+				var fallenPlayer = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
+				if (fallenPlayer != null)
+					fallenPlayer.IsFallen = true;
+				break;
 			case "player_hurt":
 				data = MapData (eventDescriptor, rawEvent);
 
@@ -172,11 +178,48 @@ namespace DemoInfo.DP.Handler
 				hurt.HealthDamage = (int)data ["dmg_health"];
 				hurt.ArmorDamage = (int)data ["dmg_armor"];
 				hurt.Hitgroup = (Hitgroup)((int)data ["hitgroup"]);
-
 				hurt.Weapon = new Equipment ((string)data ["weapon"], "");
 
 				if (hurt.Attacker != null && hurt.Weapon.Class != EquipmentClass.Grenade && hurt.Attacker.Weapons.Any ()) {
 					hurt.Weapon = hurt.Attacker.ActiveWeapon;
+				}
+
+				if ((int)data["attacker"] == 0 && (string)data["weapon"] == "")
+				{
+					hurt.Weapon = new Equipment();
+
+					if (hurt.Player.IsFallen)
+					{
+						// It's obviously possible for a player to take fall damage and bomb damage on the same tick,
+						// but it would require another variable to hold state and there's no way to definitively
+						// tell which damage is which.
+
+						hurt.Attacker = hurt.Player;
+						hurt.Weapon.Weapon = EquipmentElement.World;
+						hurt.Player.IsFallen = false;
+					}
+					else
+					{
+						// player was hurt by bomb
+						hurt.Attacker = parser.PlantedBomb.Owner;
+						hurt.Weapon.Weapon = EquipmentElement.Bomb;
+					}
+
+					parser.RaisePlayerHurt(hurt);
+
+					if (hurt.Health == 0)
+					{
+						// deaths by bomb don't trigger player_death event
+						// Fairly certain that falling deaths always result in "worldspawn" weapon
+						PlayerKilledEventArgs bombKill = new PlayerKilledEventArgs();
+
+						bombKill.Victim = hurt.Player;
+						bombKill.Killer = hurt.Attacker;
+						bombKill.Headshot = false;
+						bombKill.Weapon = hurt.Weapon;
+						parser.RaisePlayerKilled(bombKill);
+					}
+					break;
 				}
 
 				parser.RaisePlayerHurt (hurt);
