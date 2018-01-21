@@ -596,8 +596,9 @@ namespace DemoInfo
 				}
 			}
 
-			PreTickDone(this, new EventArgs());
 			if (b) {
+				if (PreTickDone != null)
+					PreTickDone(this, new EventArgs());
 				if (TickDone != null)
 					TickDone(this, new TickDoneEventArgs());
 			}
@@ -935,7 +936,7 @@ namespace DemoInfo
 				}
 				else
 				{
-					EventHandler<TickDoneEventArgs> lambda = null;
+					EventHandler<EventArgs> lambda = null;
 					lambda = (s2, ee) =>
 					{
 						// We won't know whether it's an abort or a defuse until the bomb gets checked
@@ -951,10 +952,10 @@ namespace DemoInfo
 							abortArgs.HasKit = p.HasDefuseKit;
 							RaiseBombAbortDefuse(abortArgs);
 						}
-						TickDone -= lambda;
+						PreTickDone -= lambda;
 					};
 
-					TickDone += lambda;
+					PreTickDone += lambda;
 				}
 			};
 
@@ -1185,7 +1186,7 @@ namespace DemoInfo
 
 					// m_bBombDefused field is after m_bBombTicking, so we need to wait,
 					// This function runs once at the end of the tick and then unsubscribes itself
-					EventHandler<TickDoneEventArgs> lambda = null;
+					EventHandler<EventArgs> lambda = null;
 					lambda = (s2, e) =>
 					{
 						if (!plantedBomb.Defused)
@@ -1194,9 +1195,9 @@ namespace DemoInfo
 							plantedBomb.BombState = BombState.Exploded;
 						}
 
-						TickDone -= lambda;
+						PreTickDone -= lambda;
 					};
-					TickDone += lambda;
+					PreTickDone += lambda;
 				};
 			};
 
