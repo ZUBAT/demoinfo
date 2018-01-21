@@ -97,6 +97,12 @@ namespace DemoInfo
 		public event EventHandler<TickDoneEventArgs> TickDone;
 
 		/// <summary>
+		/// Occurs before the TickDone event is raised.  Used internally so that work can be done after everything else,
+		/// but before user's TickDone handle.
+		/// </summary>
+		internal event EventHandler<EventArgs> PreTickDone;
+
+		/// <summary>
 		/// This is raised when a player is killed. Not that the killer might be dead by the time is raised (e.g. nade-kills),
 		/// also note that the killed player is still alive when this is killed
 		/// </summary>
@@ -601,6 +607,8 @@ namespace DemoInfo
 				fireTup.Item2.ThrownBy = InfernoOwners[fireTup.Item1];
 				RaiseFireWithOwnerStart(fireTup.Item2);
 			}
+
+			PreTickDone(this, new EventArgs());
 
 			if (b) {
 				if (TickDone != null)
@@ -1447,6 +1455,7 @@ namespace DemoInfo
 			}
 
 			this.TickDone = null;
+			this.PreTickDone = null;
 			this.BombAbortDefuse = null;
 			this.BombAbortPlant = null;
 			this.BombBeginDefuse = null;
