@@ -622,11 +622,11 @@ namespace DemoInfo
 				RaiseFireWithOwnerStart(fireTup.Item2);
 			}
 
-			VerifyDamage();
-
 			if (b) {
 				if (PreTickDone != null)
 					PreTickDone(this, new EventArgs());
+				VerifyDamage();
+
 				if (TickDone != null)
 					TickDone(this, new TickDoneEventArgs());
 			}
@@ -829,10 +829,20 @@ namespace DemoInfo
 
 		Dictionary<Player, int> hpChange = new Dictionary<Player, int>();
 		Dictionary<Player, int> dmgChange = new Dictionary<Player, int>();
-		Dictionary<Player, int> roundDmg = new Dictionary<Player, int>();
-		internal Dictionary<Player, int> EventDmgTaken = new Dictionary<Player, int>();
+		Dictionary<Player, Dictionary<string, int>> roundDmg = new Dictionary<Player, Dictionary<string, int>>();
+		// Attacker, Victim, damage
+		internal Queue<Tuple<Player, Player, int, EquipmentElement>> PlayerHurts = new Queue<Tuple<Player, Player, int, EquipmentElement>>();
+		public bool RelaxVerifyDamage = false;
 		private void HandlePlayers()
 		{
+			MatchStarted += (sender, e) =>
+			{
+				hpChange.Clear();
+				dmgChange.Clear();
+				roundDmg.Clear();
+				PlayerHurts.Clear();
+			};
+
 			SendTableParser.FindByName("CCSPlayer").OnNewEntity += (object sender, EntityCreatedEventArgs e) => HandleNewPlayer (e.Entity);
 
 			SendTableParser.FindByName("CCSPlayerResource").OnNewEntity += (blahblah, playerResources) => {
@@ -933,10 +943,13 @@ namespace DemoInfo
 			//update some stats
 			playerEntity.FindProperty("m_iHealth").IntRecived += (sender, e) =>
 			{
-				if (e.Value != 100)
+				// sender == null when entity cache is used i.e. first update
+				if (IngameTick != 0 && e.Value != 100 && sender != null && !GameInfo.WarmupPeriod)
 					hpChange[p] = p.HP - e.Value;
+
 				p.HP = e.Value;
 			};
+
 			playerEntity.FindProperty("m_ArmorValue").IntRecived += (sender, e) => p.Armor = e.Value;
 			playerEntity.FindProperty("m_bHasDefuser").IntRecived += (sender, e) => p.HasDefuseKit = e.Value == 1;
 			playerEntity.FindProperty("m_bHasHelmet").IntRecived += (sender, e) => p.HasHelmet = e.Value == 1;
@@ -964,14 +977,46 @@ namespace DemoInfo
 
 				playerEntity.FindProperty("m_iMatchStats_Damage." + iString).IntRecived += (sender, e) =>
 				{
+
+					// These start being used after round_end, not on at the start of new rounds.
+					// e.g. if 002 is being used and there's a round_end event, then 003 will start getting used
+					// even before round_officially_ended
+
+					bool playerRejoined = p.Team == Team.Spectate;
+
+					// iForTheMethod === rounds - 1 on restarts and some other odd places
+					// iForTheMethod == rounds + 1 on low tickrate recordings where a player_hurt can come after round_end on the same tick
+					if (playerRejoined || GameInfo.WarmupPeriod ||
+						(   iForTheMethod != GameInfo.TotalRoundsPlayed
+						 && iForTheMethod != GameInfo.TotalRoundsPlayed - 1
+						 && iForTheMethod != GameInfo.TotalRoundsPlayed + 1))
+						return;
+
 					if (roundDmg.ContainsKey(p))
-						dmgChange[p] = e.Value - roundDmg[p];
+					{
+						string previStr = (iForTheMethod - 1).ToString().PadLeft(3,'0');
+						roundDmg[p] = new Dictionary<string, int>{
+							{previStr, roundDmg[p].ContainsKey(previStr) ? roundDmg[p][previStr] : 0},
+							{iString, roundDmg[p].ContainsKey(iString) ? roundDmg[p][iString] : 0}
+						};
+
+						if (roundDmg[p][iString] > 0 && e.Value > 0)
+						{
+							dmgChange[p] = e.Value - roundDmg[p][iString];
+						}
+						else if (e.Value > 0)
+							dmgChange[p] = e.Value;
+					}
 					else
-						dmgChange[p] = e.Value;
+					{
+						if (e.Value > 0 && !playerRejoined)
+							dmgChange[p] = e.Value;
 
-					roundDmg[p] = e.Value;
+						roundDmg[p] = new Dictionary<string, int>();
+					}
+
+					roundDmg[p][iString] = e.Value;
 				};
-
 			}
 
 			playerEntity.FindProperty("m_bIsDefusing").IntRecived += (sender, e) => {
@@ -1068,37 +1113,157 @@ namespace DemoInfo
 
 		private void VerifyDamage()
 		{
-			if (!(hpChange.Count > 0 && dmgChange.Count > 0))
-				return;
-
-			if (hpChange.Count == 1)
+			if (GameInfo.WarmupPeriod || GameInfo.Paused || hpChange.Count == 0)
 			{
-				var hpc = hpChange.First();
-				foreach (var dmg in dmgChange)
+				// There is at least one edge case where hpChange has no elements but dmgChange does
+				// Sometimes when switching between warmups and game mode (i think?) the values can get set to 0
+				// and then go back to the value they were before being set to 0.  Anyways, safest to just clear here.
+				dmgChange.Clear();
+				PlayerHurts.Clear();
+				return;
+			}
+
+			while (PlayerHurts.Count > 0)
+			{
+				var ph = PlayerHurts.Dequeue();
+				hpChange[ph.Item2] -= ph.Item3;
+
+				if (hpChange[ph.Item2] == 0)
+					hpChange.Remove(ph.Item2);
+
+				// Doesn't work during warmups or overtime rounds.
+				if (ph.Item4 != EquipmentElement.World && ph.Item4 != EquipmentElement.Bomb && CTScore + TScore < 30)
 				{
-					var hurtArgs = new PlayerHurtEventArgs();
-					hurtArgs.Player = hpc.Key;
-					hurtArgs.HealthDamage = dmg.Value;
-					hurtArgs.Attacker = dmg.Key;
-					RaisePlayerHurt(hurtArgs);
+					dmgChange[ph.Item1] -= ph.Item3;
+
+					if (dmgChange[ph.Item1] == 0)
+						dmgChange.Remove(ph.Item1);
 				}
 			}
-			else if (dmgChange.Count == 1)
+
+			if (RelaxVerifyDamage)
 			{
-				var dmc = dmgChange.First();
-				foreach (var hp in hpChange)
+				List<Player> hpToRemove = new List<Player>();
+				foreach (var hpc in hpChange)
 				{
-					var hurtArgs = new PlayerHurtEventArgs();
-					hurtArgs.Player = hp.Key;
-					hurtArgs.HealthDamage = hp.Value;
-					hurtArgs.Attacker = dmc.Key;
+					var dmgs = dmgChange.Where(d => d.Value == hpc.Value).ToList();
+					if (dmgs.Count == 1)
+					{
+						var dmg = dmgs[0];
+						var hurtArgs = new PlayerHurtEventArgs();
+						hurtArgs.Player = hpc.Key;
+						hurtArgs.HealthDamage = dmg.Value;
+						hurtArgs.Attacker = dmg.Key;
+						RaisePlayerHurt(hurtArgs);
+
+						hpToRemove.Add(hpc.Key);
+						dmgChange.Remove(dmg.Key);
+					}
 				}
+
+				foreach (var p in hpToRemove)
+					hpChange.Remove(p);
 			}
 
 			// no way to figure out who shot whom with 100% accuracy if they're both more than 1
+			if (hpChange.Count >= 1 || dmgChange.Count >= 1 && !(hpChange.Count > 1 && dmgChange.Count > 1))
+			{
+				int hpSum = 0;
+				int dmgSum = 0;
+
+				foreach (var hp in hpChange)
+					hpSum += hp.Value;
+				foreach (var dmg in dmgChange)
+					dmgSum += dmg.Value;
+
+				if (hpSum > dmgSum && hpChange.Count > 1 && dmgChange.Count > 0)
+				{
+					// can't differentiate between player damage and bomb/fall damage
+					hpChange.Clear();
+					dmgChange.Clear();
+					PlayerHurts.Clear();
+					return;
+				}
+
+				else if (hpChange.Count == 1)
+				{
+					var hpc = hpChange.First();
+					int hpcVal = hpc.Value;
+					foreach (var dmg in dmgChange)
+					{
+						var hurtArgs = new PlayerHurtEventArgs();
+						hurtArgs.Player = hpc.Key;
+						hurtArgs.HealthDamage = dmg.Value;
+						hurtArgs.Attacker = dmg.Key;
+						RaisePlayerHurt(hurtArgs);
+						hpcVal -= dmg.Value;
+					}
+
+					if (hpcVal > 0)
+					{
+						// Some bomb or fall damage involved
+						bool bombExploded = (PlantedBomb != null && PlantedBomb.ExplodeTick == IngameTick);
+						var hurtArgs = new PlayerHurtEventArgs();
+						hurtArgs.Weapon = new Equipment();
+						hurtArgs.Player = hpc.Key;
+						hurtArgs.HealthDamage = hpcVal;
+
+						if (bombExploded)
+						{
+							hurtArgs.Attacker = PlantedBomb.Owner;
+							hurtArgs.Weapon.Weapon = EquipmentElement.Bomb;
+						}
+						else
+						{
+							hurtArgs.Attacker = hurtArgs.Player;
+							hurtArgs.Weapon.Weapon = EquipmentElement.World;
+						}
+
+						RaisePlayerHurt(hurtArgs);
+					}
+				}
+				else if (dmgChange.Count == 0)
+				{
+					// Damage was either from falling or bomb
+					// If player takes fall and bomb damage on same tick, it will all be counted as bomb
+					bool bombExploded = (PlantedBomb != null && PlantedBomb.ExplodeTick == IngameTick);
+					foreach (var hp in hpChange)
+					{
+						var hurtArgs = new PlayerHurtEventArgs();
+						hurtArgs.Weapon = new Equipment();
+						hurtArgs.Player = hp.Key;
+						hurtArgs.HealthDamage = hp.Value;
+
+						if (bombExploded)
+						{
+							hurtArgs.Attacker = PlantedBomb.Owner;
+							hurtArgs.Weapon.Weapon = EquipmentElement.Bomb;
+						}
+						else
+						{
+							hurtArgs.Attacker = hurtArgs.Player;
+							hurtArgs.Weapon.Weapon = EquipmentElement.World;
+						}
+						RaisePlayerHurt(hurtArgs);
+					}
+				}
+				else
+				{ //hpChange.Count > 1 and dmgChange.Count <= 1 and no bomb/fall damage
+					var dmc = dmgChange.First();
+					foreach (var hp in hpChange)
+					{
+						var hurtArgs = new PlayerHurtEventArgs();
+						hurtArgs.Player = hp.Key;
+						hurtArgs.HealthDamage = hp.Value;
+						hurtArgs.Attacker = dmc.Key;
+						RaisePlayerHurt(hurtArgs);
+					}
+				}
+			}
+
 			hpChange.Clear();
 			dmgChange.Clear();
-
+			PlayerHurts.Clear();
 		}
 
 		private void MapEquipment()
@@ -1229,7 +1394,8 @@ namespace DemoInfo
 				};
 			};
 
-			SendTableParser.FindByName("CPlantedC4").OnNewEntity += (s, ent) =>
+			var plantedBombClass = SendTableParser.FindByName("CPlantedC4");
+			plantedBombClass.OnNewEntity += (s, ent) =>
 			{
 				// Sometimes there's PlantedC4 entity on the first tick of a demo that doesn't actually exist in-game.
 				// In the demos where this has happened so far it has m_bBombTicking set to 0
@@ -1290,6 +1456,17 @@ namespace DemoInfo
 					};
 					PreTickDone += lambda;
 				};
+			};
+
+			plantedBombClass.OnDestroyEntity += (s, ent) =>
+			{
+				EventHandler<TickDoneEventArgs> lambda = null;
+				lambda = (s2, e) =>
+				{
+					PlantedBomb = null;
+					TickDone -= lambda;
+				};
+				TickDone += lambda;
 			};
 
 			SendTableParser.FindByName("CC4").OnNewEntity += (s, ent) =>
@@ -1370,6 +1547,7 @@ namespace DemoInfo
 				ent.Entity.FindProperty("cs_gamerules_data.m_iRoundTime").IntRecived += (s1, i) => GameInfo.RoundTime = i.Value;
 				ent.Entity.FindProperty("cs_gamerules_data.m_gamePhase").IntRecived += (s1, i) => GameInfo.GamePhase = (GamePhase)i.Value;
 				ent.Entity.FindProperty("cs_gamerules_data.m_bMatchWaitingForResume").IntRecived += (s1, b) => GameInfo.Paused = b.Value == 1;
+				ent.Entity.FindProperty("cs_gamerules_data.m_totalRoundsPlayed").IntRecived += (s1, i) => GameInfo.TotalRoundsPlayed = i.Value;
 				ent.Entity.FindProperty("cs_gamerules_data.m_bHasMatchStarted").IntRecived += (s1, b) =>
 				{
 					if (b.Value == 1)

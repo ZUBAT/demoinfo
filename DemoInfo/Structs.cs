@@ -324,6 +324,7 @@ namespace DemoInfo
 		public bool FreezePeriod { get; internal set; }
 		public bool Restarting { get; internal set; }
 		public int RoundTime { get; internal set; }
+		public int TotalRoundsPlayed { get; internal set; }
 		public GamePhase GamePhase { get; internal set; }
 	}
 

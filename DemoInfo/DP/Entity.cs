@@ -434,8 +434,8 @@ namespace DemoInfo.DP
 
 	internal class BombEntity : PositionedEntity
 	{
-		internal BombState BombState = BombState.Held;
 		internal Player Defuser;
+		internal int ExplodeTick;
 		internal bool Defused { get { return BombState == BombState.Defused; } }
 		internal char Site {
 			get
@@ -445,9 +445,20 @@ namespace DemoInfo.DP
 				return distToA < distToB ? 'A' : 'B';
 			}
 		}
+		private BombState _bombState = BombState.Held;
+		internal BombState BombState {
+			get { return _bombState; }
+			set
+			{
+				_bombState = value;
+				if (value == BombState.Exploded)
+					ExplodeTick = parser.IngameTick;
+			}
+		}
 
 		internal BombEntity(Entity ent, DemoParser parser) : base(ent, parser)
 		{
+			BombState = BombState.Held;
 		}
 
 		internal BombEventArgs MakeBombArgs()

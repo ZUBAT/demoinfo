@@ -119,6 +119,22 @@ namespace DemoInfo.DP.Handler
 				kill.Headshot = (bool)data["headshot"];
 				kill.Weapon = new Equipment((string)data["weapon"], (string)data["weapon_itemid"]);
 
+				if (kill.Weapon.Weapon == EquipmentElement.World && !parser.GameInfo.WarmupPeriod)
+				{
+					// damage won't show up as player_hurt
+					//parser.EventHealthChange[kill.Victim] = kill.Victim.HP;
+					// this should only trigger for things like switching teams
+					parser.PlayerHurts.Enqueue(Tuple.Create(kill.Victim, kill.Victim, kill.Victim.HP, kill.Weapon.Weapon));
+					PlayerHurtEventArgs suicideHurt = new PlayerHurtEventArgs();
+					suicideHurt.Health = 0;
+					suicideHurt.HealthDamage = kill.Victim.HP;
+					suicideHurt.Hitgroup = 0;
+					suicideHurt.Player = kill.Victim;
+					suicideHurt.Attacker = kill.Victim;
+					suicideHurt.Weapon = kill.Weapon;
+					parser.RaisePlayerHurt(suicideHurt);
+				}
+
 				if (kill.Killer != null && kill.Weapon.Class != EquipmentClass.Grenade
 						&& kill.Weapon.Weapon != EquipmentElement.Revolver
 						&& kill.Killer.Weapons.Any() && kill.Weapon.Weapon != EquipmentElement.World) {
@@ -151,12 +167,6 @@ namespace DemoInfo.DP.Handler
 				hurt.HealthDamage = (int)data ["dmg_health"];
 				hurt.ArmorDamage = (int)data ["dmg_armor"];
 				hurt.Hitgroup = (Hitgroup)((int)data ["hitgroup"]);
-
-				if (parser.EventDmgTaken.ContainsKey(hurt.Player))
-					parser.EventDmgTaken[hurt.Player] += hurt.HealthDamage;
-				else
-					parser.EventDmgTaken[hurt.Player] = hurt.HealthDamage;
-
 				hurt.Weapon = new Equipment ((string)data ["weapon"], "");
 
 				if (hurt.Attacker != null && hurt.Weapon.Class != EquipmentClass.Grenade && hurt.Attacker.Weapons.Any ()) {
@@ -184,8 +194,6 @@ namespace DemoInfo.DP.Handler
 						hurt.Weapon.Weapon = EquipmentElement.Bomb;
 					}
 
-					parser.RaisePlayerHurt(hurt);
-
 					if (hurt.Health == 0)
 					{
 						// deaths by bomb don't trigger player_death event
@@ -198,10 +206,17 @@ namespace DemoInfo.DP.Handler
 						bombKill.Weapon = hurt.Weapon;
 						parser.RaisePlayerKilled(bombKill);
 					}
-					break;
 				}
 
-				parser.RaisePlayerHurt (hurt);
+				if (!parser.GameInfo.WarmupPeriod)
+				{
+					int plyrDmgThisTick = parser.PlayerHurts.Where(p => p.Item2 == hurt.Player).Sum(p => p.Item3);
+					int plyrHP = hurt.Player.HP - plyrDmgThisTick;
+					int dmg = Math.Min(hurt.HealthDamage, plyrHP);
+					parser.PlayerHurts.Enqueue(Tuple.Create(hurt.Attacker, hurt.Player, dmg, hurt.Weapon.Weapon));
+				}
+
+				parser.RaisePlayerHurt(hurt);
 				break;
 
 				#region Nades
