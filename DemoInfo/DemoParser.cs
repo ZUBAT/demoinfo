@@ -1118,8 +1118,10 @@ namespace DemoInfo
 				// There is at least one edge case where hpChange has no elements but dmgChange does
 				// Sometimes when switching between warmups and game mode (i think?) the values can get set to 0
 				// and then go back to the value they were before being set to 0.  Anyways, safest to just clear here.
+
 				dmgChange.Clear();
 				PlayerHurts.Clear();
+				hpChange.Clear();
 				return;
 			}
 
@@ -1154,10 +1156,21 @@ namespace DemoInfo
 						hurtArgs.Player = hpc.Key;
 						hurtArgs.HealthDamage = dmg.Value;
 						hurtArgs.Attacker = dmg.Key;
+						hurtArgs.Health = hurtArgs.Player.HP;
 						RaisePlayerHurt(hurtArgs);
 
 						hpToRemove.Add(hpc.Key);
 						dmgChange.Remove(dmg.Key);
+
+						if (hurtArgs.Health == 0)
+						{
+							var deadArgs = new PlayerKilledEventArgs();
+							deadArgs.Victim = hurtArgs.Player;
+							deadArgs.Killer = hurtArgs.Attacker;
+							deadArgs.Weapon = hurtArgs.Weapon;
+							deadArgs.Headshot = false;
+							RaisePlayerKilled(deadArgs);
+						}
 					}
 				}
 
@@ -1189,14 +1202,20 @@ namespace DemoInfo
 				{
 					var hpc = hpChange.First();
 					int hpcVal = hpc.Value;
+					Player lastAttacker = new Player();
+					Equipment lastWeapon = new Equipment();
+
 					foreach (var dmg in dmgChange)
 					{
 						var hurtArgs = new PlayerHurtEventArgs();
 						hurtArgs.Player = hpc.Key;
 						hurtArgs.HealthDamage = dmg.Value;
+						// not including Health in thesee PlayerHurtEventArgs because can't determine order of occurrence
 						hurtArgs.Attacker = dmg.Key;
 						RaisePlayerHurt(hurtArgs);
 						hpcVal -= dmg.Value;
+						lastAttacker = dmg.Key;
+						lastWeapon = hurtArgs.Weapon;
 					}
 
 					if (hpcVal > 0)
@@ -1219,7 +1238,22 @@ namespace DemoInfo
 							hurtArgs.Weapon.Weapon = EquipmentElement.World;
 						}
 
+						lastAttacker = hurtArgs.Attacker;
+						lastWeapon = hurtArgs.Weapon;
 						RaisePlayerHurt(hurtArgs);
+					}
+
+					if (hpc.Key.HP == 0)
+					{
+						var deadArgs = new PlayerKilledEventArgs();
+						deadArgs.Victim = hpc.Key;
+						deadArgs.Killer = lastAttacker;
+						deadArgs.Weapon = lastWeapon;
+
+						if (deadArgs.Killer == new Player() || deadArgs.Weapon == new Equipment())
+							System.Diagnostics.Debugger.Break();
+
+						RaisePlayerKilled(deadArgs);
 					}
 				}
 				else if (dmgChange.Count == 0)
@@ -1233,6 +1267,7 @@ namespace DemoInfo
 						hurtArgs.Weapon = new Equipment();
 						hurtArgs.Player = hp.Key;
 						hurtArgs.HealthDamage = hp.Value;
+						hurtArgs.Health = hurtArgs.Player.HP;
 
 						if (bombExploded)
 						{
@@ -1245,6 +1280,16 @@ namespace DemoInfo
 							hurtArgs.Weapon.Weapon = EquipmentElement.World;
 						}
 						RaisePlayerHurt(hurtArgs);
+
+						if (hurtArgs.Player.HP == 0)
+						{
+							var deadArgs = new PlayerKilledEventArgs();
+							deadArgs.Victim = hurtArgs.Player;
+							deadArgs.Killer = hurtArgs.Attacker;
+							deadArgs.Weapon = hurtArgs.Weapon;
+							deadArgs.Headshot = false;
+							RaisePlayerKilled(deadArgs);
+						}
 					}
 				}
 				else
@@ -1255,8 +1300,18 @@ namespace DemoInfo
 						var hurtArgs = new PlayerHurtEventArgs();
 						hurtArgs.Player = hp.Key;
 						hurtArgs.HealthDamage = hp.Value;
+						hurtArgs.Health = hurtArgs.Player.HP;
 						hurtArgs.Attacker = dmc.Key;
 						RaisePlayerHurt(hurtArgs);
+
+						if (hurtArgs.Player.HP == 0)
+						{
+							var deadArgs = new PlayerKilledEventArgs();
+							deadArgs.Victim = hurtArgs.Player;
+							deadArgs.Killer = hurtArgs.Attacker;
+							deadArgs.Weapon = hurtArgs.Weapon;
+							RaisePlayerKilled(deadArgs);
+						}
 					}
 				}
 			}

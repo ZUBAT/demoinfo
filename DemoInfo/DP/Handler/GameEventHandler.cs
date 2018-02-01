@@ -121,9 +121,13 @@ namespace DemoInfo.DP.Handler
 
 				if (kill.Weapon.Weapon == EquipmentElement.World && !parser.GameInfo.WarmupPeriod)
 				{
+					if (!parser.PlayingParticipants.Contains(kill.Victim))
+						return;
+
 					// damage won't show up as player_hurt
 					//parser.EventHealthChange[kill.Victim] = kill.Victim.HP;
 					// this should only trigger for things like switching teams
+					// can also trigger when player dies from fall
 					parser.PlayerHurts.Enqueue(Tuple.Create(kill.Victim, kill.Victim, kill.Victim.HP, kill.Weapon.Weapon));
 					PlayerHurtEventArgs suicideHurt = new PlayerHurtEventArgs();
 					suicideHurt.Health = 0;
@@ -153,7 +157,10 @@ namespace DemoInfo.DP.Handler
 			case "player_falldamage":
 				data = MapData(eventDescriptor, rawEvent);
 				var fallenPlayer = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
-				if (fallenPlayer != null)
+
+				// it's possible for damage to be less than 1 and then it doesn't trigger player_hurt
+				// I'm assuming the threshold is 1, but not certain.  Found value of 0.56, so it's at least not rounding up from .5
+				if (fallenPlayer != null && (float)data["damage"] >= 1)
 					fallenPlayer.IsFallen = true;
 				break;
 			case "player_hurt":
@@ -173,6 +180,7 @@ namespace DemoInfo.DP.Handler
 					hurt.Weapon = hurt.Attacker.ActiveWeapon;
 				}
 
+				PlayerKilledEventArgs bombKill = null;
 				if ((int)data["attacker"] == 0 && (string)data["weapon"] == "")
 				{
 					hurt.Weapon = new Equipment();
@@ -194,17 +202,16 @@ namespace DemoInfo.DP.Handler
 						hurt.Weapon.Weapon = EquipmentElement.Bomb;
 					}
 
-					if (hurt.Health == 0)
+					if (hurt.Health == 0 && hurt.Weapon.Weapon != EquipmentElement.World)
 					{
 						// deaths by bomb don't trigger player_death event
 						// Fairly certain that falling deaths always result in "worldspawn" weapon
-						PlayerKilledEventArgs bombKill = new PlayerKilledEventArgs();
+						bombKill = new PlayerKilledEventArgs();
 
 						bombKill.Victim = hurt.Player;
 						bombKill.Killer = hurt.Attacker;
 						bombKill.Headshot = false;
 						bombKill.Weapon = hurt.Weapon;
-						parser.RaisePlayerKilled(bombKill);
 					}
 				}
 
@@ -217,6 +224,8 @@ namespace DemoInfo.DP.Handler
 				}
 
 				parser.RaisePlayerHurt(hurt);
+				if (bombKill != null)
+					parser.RaisePlayerKilled(bombKill);
 				break;
 
 				#region Nades
