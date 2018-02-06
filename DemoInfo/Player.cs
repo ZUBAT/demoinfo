@@ -49,6 +49,8 @@ namespace DemoInfo
 
 		internal int ActiveWeaponID;
 
+		internal Equipment WeaponFire;
+
 		public Equipment ActiveWeapon
 		{
 			get

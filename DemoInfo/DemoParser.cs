@@ -612,6 +612,8 @@ namespace DemoInfo
 						bind.Player = p;
 						RaisePlayerBind(bind);
 					}
+
+					p.WeaponFire = null;
 				}
 			}
 
@@ -1223,13 +1225,6 @@ namespace DemoInfo
 						if (dmgChange[ph.Item1] == 0)
 							dmgChange.Remove(ph.Item1);
 					}
-					else
-					{
-						System.Diagnostics.Debugger.Break();
-						Console.Write("");
-					}
-
-
 				}
 			}
 
@@ -1339,9 +1334,6 @@ namespace DemoInfo
 						deadArgs.Victim = hpc.Key;
 						deadArgs.Killer = lastAttacker;
 						deadArgs.Weapon = lastWeapon;
-
-						if (deadArgs.Killer == new Player() || deadArgs.Weapon == new Equipment())
-							System.Diagnostics.Debugger.Break();
 
 						RaisePlayerKilled(deadArgs);
 					}
@@ -1526,6 +1518,32 @@ namespace DemoInfo
 		                throw new InvalidDataException("Unknown weapon model");
 		        };
 		    }
+
+			int tickCreated = IngameTick;
+			if (equipment.Weapon == EquipmentElement.Knife)
+			{
+				// secondary attacks with knives don't have weapon_fire events
+				// and m_fLastShotTime doesn't trigger with it either
+				e.Entity.FindProperty("m_flLastMadeNoiseTime").FloatRecived += (sender2, e2) => InterpWeaponFire(equipment, tickCreated);
+			}
+
+			e.Entity.FindProperty("m_fLastShotTime").FloatRecived += (sender2, e2) => InterpWeaponFire(equipment, tickCreated);
+		}
+
+		private void InterpWeaponFire(Equipment equipment, int tickCreated)
+		{
+			if (tickCreated == IngameTick)
+				return;
+
+			if (IngameTick != 0 && equipment.Owner != null && equipment.Owner.WeaponFire != equipment)
+			{
+				equipment.Owner.WeaponFire = equipment;
+
+				WeaponFiredEventArgs wFire = new WeaponFiredEventArgs();
+				wFire.Shooter = equipment.Owner;
+				wFire.Weapon = equipment;
+				RaiseWeaponFired(wFire);
+			}
 		}
 
 		private void HandleBombSites()
