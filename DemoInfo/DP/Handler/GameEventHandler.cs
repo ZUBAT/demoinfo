@@ -106,6 +106,8 @@ namespace DemoInfo.DP.Handler
 					fire.Weapon = fire.Shooter.ActiveWeapon;
 				}
 
+				fire.Shooter.WeaponFire = fire.Weapon;
+
 				parser.RaiseWeaponFired(fire);
 				break;
 			case "player_death":
