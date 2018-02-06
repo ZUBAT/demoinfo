@@ -119,6 +119,26 @@ namespace DemoInfo.DP.Handler
 				kill.Headshot = (bool)data["headshot"];
 				kill.Weapon = new Equipment((string)data["weapon"], (string)data["weapon_itemid"]);
 
+				if (kill.Weapon.Weapon == EquipmentElement.World && !parser.GameInfo.WarmupPeriod)
+				{
+					if (!parser.PlayingParticipants.Contains(kill.Victim))
+						return;
+
+					// damage won't show up as player_hurt
+					//parser.EventHealthChange[kill.Victim] = kill.Victim.HP;
+					// this should only trigger for things like switching teams
+					// can also trigger when player dies from fall
+					parser.PlayerHurts.Enqueue(Tuple.Create(kill.Victim, kill.Victim, kill.Victim.HP, kill.Weapon.Weapon));
+					PlayerHurtEventArgs suicideHurt = new PlayerHurtEventArgs();
+					suicideHurt.Health = 0;
+					suicideHurt.HealthDamage = kill.Victim.HP;
+					suicideHurt.Hitgroup = 0;
+					suicideHurt.Player = kill.Victim;
+					suicideHurt.Attacker = kill.Victim;
+					suicideHurt.Weapon = kill.Weapon;
+					parser.RaisePlayerHurt(suicideHurt);
+				}
+
 				if (kill.Killer != null && kill.Weapon.Class != EquipmentClass.Grenade
 						&& kill.Weapon.Weapon != EquipmentElement.Revolver
 						&& kill.Killer.Weapons.Any() && kill.Weapon.Weapon != EquipmentElement.World) {
@@ -134,6 +154,15 @@ namespace DemoInfo.DP.Handler
 
 				parser.RaisePlayerKilled(kill);
 				break;
+			case "player_falldamage":
+				data = MapData(eventDescriptor, rawEvent);
+				var fallenPlayer = parser.Players.ContainsKey((int)data["userid"]) ? parser.Players[(int)data["userid"]] : null;
+
+				// it's possible for damage to be less than 1 and then it doesn't trigger player_hurt
+				// I'm assuming the threshold is 1, but not certain.  Found value of 0.56, so it's at least not rounding up from .5
+				if (fallenPlayer != null && (float)data["damage"] >= 1)
+					fallenPlayer.IsFallen = true;
+				break;
 			case "player_hurt":
 				data = MapData (eventDescriptor, rawEvent);
 
@@ -145,14 +174,58 @@ namespace DemoInfo.DP.Handler
 				hurt.HealthDamage = (int)data ["dmg_health"];
 				hurt.ArmorDamage = (int)data ["dmg_armor"];
 				hurt.Hitgroup = (Hitgroup)((int)data ["hitgroup"]);
-
 				hurt.Weapon = new Equipment ((string)data ["weapon"], "");
 
 				if (hurt.Attacker != null && hurt.Weapon.Class != EquipmentClass.Grenade && hurt.Attacker.Weapons.Any ()) {
 					hurt.Weapon = hurt.Attacker.ActiveWeapon;
 				}
 
-				parser.RaisePlayerHurt (hurt);
+				PlayerKilledEventArgs bombKill = null;
+				if ((int)data["attacker"] == 0 && (string)data["weapon"] == "")
+				{
+					hurt.Weapon = new Equipment();
+
+					if (hurt.Player.IsFallen)
+					{
+						// It's obviously possible for a player to take fall damage and bomb damage on the same tick,
+						// but it would require another variable to hold state and there's no way to definitively
+						// tell which damage is which.
+
+						hurt.Attacker = hurt.Player;
+						hurt.Weapon.Weapon = EquipmentElement.World;
+						hurt.Player.IsFallen = false;
+					}
+					else
+					{
+						// player was hurt by bomb
+						hurt.Attacker = parser.PlantedBomb.Owner;
+						hurt.Weapon.Weapon = EquipmentElement.Bomb;
+					}
+
+					if (hurt.Health == 0 && hurt.Weapon.Weapon != EquipmentElement.World)
+					{
+						// deaths by bomb don't trigger player_death event
+						// Fairly certain that falling deaths always result in "worldspawn" weapon
+						bombKill = new PlayerKilledEventArgs();
+
+						bombKill.Victim = hurt.Player;
+						bombKill.Killer = hurt.Attacker;
+						bombKill.Headshot = false;
+						bombKill.Weapon = hurt.Weapon;
+					}
+				}
+
+				if (!parser.GameInfo.WarmupPeriod)
+				{
+					int plyrDmgThisTick = parser.PlayerHurts.Where(p => p.Item2 == hurt.Player).Sum(p => p.Item3);
+					int plyrHP = hurt.Player.HP - plyrDmgThisTick;
+					int dmg = Math.Min(hurt.HealthDamage, plyrHP);
+					parser.PlayerHurts.Enqueue(Tuple.Create(hurt.Attacker, hurt.Player, dmg, hurt.Weapon.Weapon));
+				}
+
+				parser.RaisePlayerHurt(hurt);
+				if (bombKill != null)
+					parser.RaisePlayerKilled(bombKill);
 				break;
 
 				#region Nades
