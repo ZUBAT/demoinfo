@@ -41,11 +41,15 @@ namespace DemoInfo
 
 		public bool IsDucking { get; set; }
 
+		public bool IsFallen { get; set; }
+
 		internal Entity Entity;
 
 		public bool Disconnected { get; set; }
 
 		internal int ActiveWeaponID;
+
+		internal Equipment WeaponFire;
 
 		public Equipment ActiveWeapon
 		{
