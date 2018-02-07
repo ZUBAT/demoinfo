@@ -132,11 +132,11 @@ namespace DemoInfo
 		/// </summary>
 		public event EventHandler<PlayerKillInfoEventArgs> PlayerKillInfo;
 
-		public event EventHandler<UpdateAttributeEventArgs> UpdateHP;
-		public event EventHandler<UpdateAttributeEventArgs> UpdateArmor;
-		public event EventHandler<UpdateAttributeEventArgs> UpdateMoney;
-		public event EventHandler<UpdateHeldEventArgs> UpdateHeadArmor;
-		public event EventHandler<UpdateHeldEventArgs> UpdateDefuseKit;
+		public event EventHandler<UpdateHPEventArgs> UpdateHP;
+		public event EventHandler<UpdateArmorEventArgs> UpdateArmor;
+		public event EventHandler<UpdateMoneyEventArgs> UpdateMoney;
+		public event EventHandler<UpdateHeadArmorEventArgs> UpdateHeadArmor;
+		public event EventHandler<UpdateDefuseKitEventArgs> UpdateDefuseKit;
 
 		/// <summary>
 		/// Occurs when a player select a team
@@ -1107,7 +1107,7 @@ namespace DemoInfo
 					hpChange[p] = p.HP - e.Value;
 
 				p.HP = e.Value;
-				UpdateAttributeEventArgs update = new UpdateAttributeEventArgs();
+				UpdateHPEventArgs update = new UpdateHPEventArgs();
 				update.Player = p;
 				update.Value = e.Value;
 
@@ -1116,7 +1116,7 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_ArmorValue").IntRecived += (sender, e) =>
 			{
 				p.Armor = e.Value;
-				UpdateAttributeEventArgs update = new UpdateAttributeEventArgs();
+				UpdateArmorEventArgs update = new UpdateArmorEventArgs();
 				update.Player = p;
 				update.Value = e.Value;
 
@@ -1125,7 +1125,7 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_bHasDefuser").IntRecived += (sender, e) =>
 			{
 				p.HasDefuseKit = e.Value == 1;
-				UpdateHeldEventArgs update = new UpdateHeldEventArgs();
+				UpdateDefuseKitEventArgs update = new UpdateDefuseKitEventArgs();
 				update.Player = p;
 				update.Held = e.Value == 1;
 
@@ -1134,7 +1134,7 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_bHasHelmet").IntRecived += (sender, e) =>
 			{
 				p.HasHelmet = e.Value == 1;
-				UpdateHeldEventArgs update = new UpdateHeldEventArgs();
+				UpdateHeadArmorEventArgs update = new UpdateHeadArmorEventArgs();
 				update.Player = p;
 				update.Held = e.Value == 1;
 
@@ -1144,7 +1144,7 @@ namespace DemoInfo
 			playerEntity.FindProperty("m_iAccount").IntRecived += (sender, e) =>
 			{
 				p.Money = e.Value;
-				UpdateAttributeEventArgs update = new UpdateAttributeEventArgs();
+				UpdateMoneyEventArgs update = new UpdateMoneyEventArgs();
 				update.Player = p;
 				update.Value = e.Value;
 
@@ -2193,27 +2193,27 @@ namespace DemoInfo
 				PlayerHurt(this, hurt);
 		}
 
-		internal void RaiseUpdateHP(UpdateAttributeEventArgs hp)
+		internal void RaiseUpdateHP(UpdateHPEventArgs hp)
 		{
 			if (UpdateHP != null)
 				UpdateHP(this, hp);
 		}
-		internal void RaiseUpdateArmor(UpdateAttributeEventArgs armor)
+		internal void RaiseUpdateArmor(UpdateArmorEventArgs armor)
 		{
 			if (UpdateArmor != null)
 				UpdateArmor(this, armor);
 		}
-		internal void RaiseUpdateMoney(UpdateAttributeEventArgs money)
+		internal void RaiseUpdateMoney(UpdateMoneyEventArgs money)
 		{
 			if (UpdateMoney != null)
 				UpdateMoney(this, money);
 		}
-		internal void RaiseUpdateHeadArmor(UpdateHeldEventArgs headarmor)
+		internal void RaiseUpdateHeadArmor(UpdateHeadArmorEventArgs headarmor)
 		{
 			if (UpdateHeadArmor != null)
 				UpdateHeadArmor(this, headarmor);
 		}
-		internal void RaiseUpdateDefuseKit(UpdateHeldEventArgs kit)
+		internal void RaiseUpdateDefuseKit(UpdateDefuseKitEventArgs kit)
 		{
 			if (UpdateDefuseKit != null)
 				UpdateDefuseKit(this, kit);

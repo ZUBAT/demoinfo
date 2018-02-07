@@ -127,11 +127,18 @@ namespace DemoInfo
 		public int Value {get; internal set;}
 	}
 
+	public class UpdateHPEventArgs : UpdateAttributeEventArgs { }
+	public class UpdateArmorEventArgs : UpdateAttributeEventArgs { }
+	public class UpdateMoneyEventArgs : UpdateAttributeEventArgs { }
+
 	public class UpdateHeldEventArgs : EventArgs
 	{
 		public Player Player { get; internal set; }
 		public bool Held { get; internal set; }
 	}
+
+	public class UpdateDefuseKitEventArgs : UpdateHeldEventArgs { }
+	public class UpdateHeadArmorEventArgs : UpdateHeldEventArgs { }
 
 	public class BotTakeOverEventArgs : EventArgs
 	{
