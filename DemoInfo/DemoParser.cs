@@ -127,6 +127,11 @@ namespace DemoInfo
 		/// </summary>
 		public event EventHandler<PlayerKilledEventArgs> PlayerKilled;
 
+		/// <summary>
+		/// Raised when Kills field of AdditionaInformations is updated.  Useful for when packets get dropped.
+		/// </summary>
+		public event EventHandler<PlayerKillInfoEventArgs> PlayerKillInfo;
+
 		public event EventHandler<UpdateAttributeEventArgs> UpdateHP;
 		public event EventHandler<UpdateAttributeEventArgs> UpdateArmor;
 		public event EventHandler<UpdateAttributeEventArgs> UpdateMoney;
@@ -1004,6 +1009,15 @@ namespace DemoInfo
 
 					playerResources.Entity.FindProperty("m_iKills."+iString).IntRecived += (sender, e) => {
 						additionalInformations[iForTheMethod].Kills = e.Value;
+
+						if (Players.Count > 0)
+						{
+							PlayerKillInfoEventArgs eventArgs = new PlayerKillInfoEventArgs();
+							eventArgs.Player = Players.Values.FirstOrDefault(p => p.EntityID == iForTheMethod);
+							eventArgs.Kills = e.Value;
+							RaisePlayerKillInfo(eventArgs);
+						}
+
 					};
 
 					playerResources.Entity.FindProperty("m_iDeaths."+iString).IntRecived += (sender, e) => {
@@ -2167,6 +2181,12 @@ namespace DemoInfo
 				PlayerKilled(this, kill);
 		}
 
+		internal void RaisePlayerKillInfo(PlayerKillInfoEventArgs args)
+		{
+			if (PlayerKillInfo != null)
+				PlayerKillInfo(this, args);
+		}
+
 		internal void RaisePlayerHurt(PlayerHurtEventArgs hurt)
 		{
 			if (PlayerHurt != null)
@@ -2429,6 +2449,7 @@ namespace DemoInfo
 			this.MatchStarted = null;
 			this.NadeReachedTarget = null;
 			this.PlayerKilled = null;
+			this.PlayerKillInfo = null;
 			this.RoundStart = null;
 			this.SmokeNadeEnded = null;
 			this.SmokeNadeStarted = null;

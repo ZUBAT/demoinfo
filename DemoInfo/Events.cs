@@ -115,6 +115,12 @@ namespace DemoInfo
 		public bool Headshot { get; internal set; }
 	}
 
+	public class PlayerKillInfoEventArgs : EventArgs
+	{
+		public Player Player { get; internal set; }
+		public int Kills { get; internal set; }
+	}
+
 	public class UpdateAttributeEventArgs : EventArgs
 	{
 		public Player Player { get; internal set; }
