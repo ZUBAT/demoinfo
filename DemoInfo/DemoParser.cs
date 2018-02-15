@@ -1698,6 +1698,8 @@ namespace DemoInfo
 				// and m_fLastShotTime doesn't trigger with it either
 				e.Entity.FindProperty("m_flLastMadeNoiseTime").FloatRecived += (sender2, e2) => InterpWeaponFire(equipment, tickCreated);
 			}
+			else if (equipment.Weapon == EquipmentElement.Glock)
+				e.Entity.FindProperty("m_iBurstShotsRemaining").IntRecived += (sender2, e2) => InterpWeaponFire(equipment, tickCreated);
 
 			e.Entity.FindProperty("m_fLastShotTime").FloatRecived += (sender2, e2) => InterpWeaponFire(equipment, tickCreated);
 		}
