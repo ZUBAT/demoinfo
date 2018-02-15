@@ -1468,7 +1468,8 @@ namespace DemoInfo
 						RaisePlayerHurt(hurtArgs);
 						hpcVal -= dmg.Value;
 						lastAttacker = dmg.Key;
-						lastWeapon = hurtArgs.Weapon;
+						// no good way to determine whether damage was from grenade or weaponfire
+						//lastWeapon = hurtArgs.Weapon;
 					}
 
 					if (hpcVal > 0)

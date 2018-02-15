@@ -192,7 +192,7 @@ namespace DemoInfo
 
 		public FireEventArgs (NadeEventArgs nadeArgs) : base(nadeArgs)
 		{
-
+			NadeType = EquipmentElement.Incendiary;
 		}
 	}
 	public class SmokeEventArgs : NadeEventArgs
@@ -204,7 +204,7 @@ namespace DemoInfo
 
 		public SmokeEventArgs (NadeEventArgs nadeArgs) : base(nadeArgs)
 		{
-
+			NadeType = EquipmentElement.Smoke;
 		}
 	}
 	public class DecoyEventArgs : NadeEventArgs
@@ -216,7 +216,7 @@ namespace DemoInfo
 
 		public DecoyEventArgs (NadeEventArgs nadeArgs) : base(nadeArgs)
 		{
-
+			NadeType = EquipmentElement.Decoy;
 		}
 	}
 	public class FlashEventArgs : NadeEventArgs
@@ -232,7 +232,7 @@ namespace DemoInfo
 
 		public FlashEventArgs (NadeEventArgs nadeArgs) : base(nadeArgs)
 		{
-
+			NadeType = EquipmentElement.Flash;
 		}
 	}
 	public class GrenadeEventArgs : NadeEventArgs
@@ -244,7 +244,7 @@ namespace DemoInfo
 
 		public GrenadeEventArgs (NadeEventArgs nadeArgs) : base(nadeArgs)
 		{
-
+			NadeType = EquipmentElement.HE;
 		}
 	}
 
