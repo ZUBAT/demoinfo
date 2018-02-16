@@ -1710,12 +1710,17 @@ namespace DemoInfo
 			if (tickCreated == IngameTick)
 				return;
 
-			if (IngameTick != 0 && equipment.Owner != null && equipment.Owner.WeaponFire != equipment)
+			// if shooter died on same tick as he shot then equipment.Owner will be null
+			Player owner = equipment.Owner;
+			if (owner == null)
+				owner = equipment.PrevOwner;
+
+			if (IngameTick != 0 && owner.WeaponFire != equipment)
 			{
-				equipment.Owner.WeaponFire = equipment;
+				owner.WeaponFire = equipment;
 
 				WeaponFiredEventArgs wFire = new WeaponFiredEventArgs();
-				wFire.Shooter = equipment.Owner;
+				wFire.Shooter = owner;
 				wFire.Weapon = equipment;
 				RaiseWeaponFired(wFire);
 			}
