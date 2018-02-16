@@ -536,6 +536,7 @@ namespace DemoInfo
 					break;
 				case "decoy":
 				case "decoygrenade":
+				case "decoy_projectile":
 					weapon = EquipmentElement.Decoy;
 					break;
 				case "elite":
