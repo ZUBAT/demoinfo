@@ -1432,7 +1432,7 @@ namespace DemoInfo
 			}
 
 			// no way to figure out who shot whom with 100% accuracy if they're both more than 1
-			if (hpChange.Count >= 1 || dmgChange.Count >= 1 && !(hpChange.Count > 1 && dmgChange.Count > 1))
+			if ((hpChange.Count >= 1 || dmgChange.Count >= 1) && !(hpChange.Count > 1 && dmgChange.Count > 1))
 			{
 				int hpSum = 0;
 				int dmgSum = 0;
