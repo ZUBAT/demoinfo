@@ -641,18 +641,13 @@ namespace DemoInfo.DP
 
 		internal void setIsHE()
 		{
-			EventHandler<EventArgs> lambda = null;
-			lambda = (s2, ee) =>
+			entity.OnInit += () =>
 			{
 				isHE = DmgRadius == HE_DMGRADIUS;
 
 				if (isHE)
 					NadeArgs = new GrenadeEventArgs(NadeArgs);
-
-				parser.PreTickDone -= lambda;
 			};
-
-			parser.PreTickDone += lambda;
 		}
 	}
 
