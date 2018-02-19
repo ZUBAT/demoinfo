@@ -718,7 +718,6 @@ namespace DemoInfo
 			while (InterpDetonates.Count > 0) {
 				var detonate = InterpDetonates.Dequeue();
 				detonate.RaiseNadeStart();
-				detonate.DetonateState = DetonateState.Detonating;
 			}
 
 			// It's possible for entities to be replaced without being destroyed
@@ -741,6 +740,10 @@ namespace DemoInfo
 							detClsName = "CSmokeGrenadeProjectile";
 						else if (detEnt.Value is DecoyDetonateEntity)
 							detClsName = "CDecoyProjectile";
+						else if (detEnt.Value is HEDetonateEntity)
+							detClsName = "CBaseCSGrenadeProjectile";
+						else if (detEnt.Value is FlashDetonateEntity)
+							detClsName = "CBaseCSGrenadeProjectile";
 
 						if (ent.ServerClass.Name != detClsName)
 							badEntities.Add(detEnt.Key);
@@ -1841,12 +1844,13 @@ namespace DemoInfo
 			var infernoClass = SendTableParser.FindByName("CInferno"); // fire-making entity, not projectile
 			var smokeProjClass = SendTableParser.FindByName("CSmokeGrenadeProjectile");
 			var decoyProjClass = SendTableParser.FindByName("CDecoyProjectile");
-			ServerClass[] projClasses = new ServerClass[3] {infernoClass, smokeProjClass, decoyProjClass};
+			var grenProjClass = SendTableParser.FindByName("CBaseCSGrenadeProjectile");
+			ServerClass[] projClasses = new ServerClass[4] {infernoClass, smokeProjClass, decoyProjClass, grenProjClass};
 			foreach (var projClass in projClasses)
 			{
 				projClass.OnNewEntity += (s, ent) =>
 				{
-					DetonateEntity det;
+					DetonateEntity det = null;
 
 					if (projClass == infernoClass)
 					{
@@ -1870,7 +1874,7 @@ namespace DemoInfo
 								InterpDetonates.Enqueue(det);
 						};
 					}
-					else
+					else if (projClass == decoyProjClass)
 					{
 						det = new DecoyDetonateEntity(ent.Entity, this);
 						ent.Entity.FindProperty("m_fFlags").IntRecived += (s2, flag) =>
@@ -1887,15 +1891,38 @@ namespace DemoInfo
 							}
 						};
 					}
+					else
+					{
+						bool isHE = false;
+						ent.Entity.FindProperty("m_flDamage").FloatRecived += (s3, dmg) =>
+						{
+							isHE = dmg.Value != 100;
+						};
 
-					if (det.DetonateState == DetonateState.PreDetonate)
+						// Need to be sure it's not just using the value from the default update
+						// so use pretickdone to be sure it's correct
+						EventHandler<EventArgs> lambda = null;
+						lambda = (s2, ee) =>
+						{
+							if (isHE)
+								det = new HEDetonateEntity(ent.Entity, this);
+							else
+								det = new FlashDetonateEntity(ent.Entity, this);
+
+							DetonateEntities[ent.Entity.ID] = det;
+							PreTickDone -= lambda;
+						};
+
+						PreTickDone += lambda;
+					}
+
+					if (det != null && det.DetonateState == DetonateState.PreDetonate)
 					{
 						//DT_Inferno entity is created on the same tick as inferno_startburn, but parsed after
 						if (projClass == infernoClass)
 							InterpDetonates.Enqueue(det);
 
 						DetonateEntities[ent.Entity.ID] = det;
-						det.EntityID = ent.Entity.ID;
 					}
 				};
 
@@ -1970,8 +1997,9 @@ namespace DemoInfo
 		private void PopDetonateEntity(int entID)
 		{
 			var detEntity = DetonateEntities[entID];
+			var entType = detEntity.GetType();
 
-			if (detEntity.DetonateState == DetonateState.PreDetonate)
+			if (detEntity.DetonateState == DetonateState.PreDetonate && !(entType == typeof(FlashDetonateEntity) || entType == typeof(HEDetonateEntity)))
 			{
 				// This happens when a player throws a grenade, but it never detonates.
 				// Either the round ended before detonation, or if it's a molotov it detonated in the sky.

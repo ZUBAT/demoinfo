@@ -515,6 +515,7 @@ namespace DemoInfo.DP
 		internal override void RaiseNadeStart()
 		{
 			parser.RaiseFireWithOwnerStart((FireEventArgs)NadeArgs);
+			DetonateState = DetonateState.Detonating;
 		}
 
 		internal override void RaiseNadeEnd()
@@ -539,6 +540,7 @@ namespace DemoInfo.DP
 		internal override void RaiseNadeStart()
 		{
 			parser.RaiseSmokeStart((SmokeEventArgs)NadeArgs);
+			DetonateState = DetonateState.Detonating;
 		}
 
 		internal override void RaiseNadeEnd()
@@ -565,6 +567,7 @@ namespace DemoInfo.DP
 		internal override void RaiseNadeStart()
 		{
 			parser.RaiseDecoyStart((DecoyEventArgs)NadeArgs);
+			DetonateState = DetonateState.Detonating;
 		}
 
 		internal override void RaiseNadeEnd()
@@ -575,6 +578,57 @@ namespace DemoInfo.DP
 		internal override void CopyAndReplaceNadeArgs()
 		{
 			NadeArgs = new DecoyEventArgs(NadeArgs);
+		}
+	}
+
+	class HEDetonateEntity : DetonateEntity
+	{
+		internal HEDetonateEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		{
+			NadeArgs = new GrenadeEventArgs(NadeArgs);
+			NadeArgs.Interpolated = true;
+		}
+
+		internal override void RaiseNadeStart()
+		{
+
+		}
+
+		internal override void RaiseNadeEnd()
+		{
+			parser.RaiseGrenadeExploded((GrenadeEventArgs)NadeArgs);
+			DetonateState = DetonateState.Detonated;
+		}
+
+		internal override void CopyAndReplaceNadeArgs()
+		{
+			NadeArgs = new GrenadeEventArgs(NadeArgs);
+		}
+	}
+
+	class FlashDetonateEntity : DetonateEntity
+	{
+		internal FlashDetonateEntity(Entity ent, DemoParser parser)
+			: base(ent, parser)
+		{
+			NadeArgs = new FlashEventArgs(NadeArgs);
+			NadeArgs.Interpolated = true;
+		}
+
+		internal override void RaiseNadeStart()
+		{
+
+		}
+
+		internal override void RaiseNadeEnd()
+		{
+			parser.RaiseFlashExploded((FlashEventArgs)NadeArgs);
+			DetonateState = DetonateState.Detonated;
+		}
+
+		internal override void CopyAndReplaceNadeArgs()
+		{
+			NadeArgs = new FlashEventArgs(NadeArgs);
 		}
 	}
 	#region Update-Types
