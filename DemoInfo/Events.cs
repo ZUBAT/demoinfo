@@ -469,7 +469,7 @@ namespace DemoInfo
 			}
 		}
 
-		internal Equipment ()
+		public Equipment ()
 		{
 			this.Weapon = EquipmentElement.Unknown;
 		}
