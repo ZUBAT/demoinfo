@@ -264,13 +264,22 @@ namespace DemoInfo.DP.Handler
 
 				break;
 			case "flashbang_detonate":
-				var args = FillNadeEvent<FlashEventArgs>(MapData(eventDescriptor, rawEvent), parser);
+				var flashData = MapData(eventDescriptor, rawEvent);
+				var args = FillNadeEvent<FlashEventArgs>(flashData, parser);
 				args.FlashedPlayers = blindPlayers.ToArray(); //prev blind implementation
 				parser.RaiseFlashExploded(args);
 				blindPlayers.Clear(); //prev blind implementation
+
+				var flashEnt = parser.DetonateEntities[(int)flashData["entityid"]];
+				flashEnt.DetonateState = DetonateState.Detonated;
+				parser.DetonateEntities.Remove((int)flashData["entityid"]);
 				break;
 			case "hegrenade_detonate":
-				parser.RaiseGrenadeExploded(FillNadeEvent<GrenadeEventArgs>(MapData(eventDescriptor, rawEvent), parser));
+				var heData = MapData(eventDescriptor, rawEvent);
+				parser.RaiseGrenadeExploded(FillNadeEvent<GrenadeEventArgs>(heData, parser));
+				var heEnt = parser.DetonateEntities[(int)heData["entityid"]];
+				heEnt.DetonateState = DetonateState.Detonated;
+				parser.DetonateEntities.Remove((int)heData["entityid"]);
 				break;
 			case "decoy_started":
 				var decoyData = MapData(eventDescriptor, rawEvent);
