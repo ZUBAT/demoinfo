@@ -740,9 +740,7 @@ namespace DemoInfo
 							detClsName = "CSmokeGrenadeProjectile";
 						else if (detEnt.Value is DecoyDetonateEntity)
 							detClsName = "CDecoyProjectile";
-						else if (detEnt.Value is HEDetonateEntity)
-							detClsName = "CBaseCSGrenadeProjectile";
-						else if (detEnt.Value is FlashDetonateEntity)
+						else if (detEnt.Value is BaseProjectileEntity)
 							detClsName = "CBaseCSGrenadeProjectile";
 
 						if (ent.ServerClass.Name != detClsName)
@@ -1877,46 +1875,13 @@ namespace DemoInfo
 					else if (projClass == decoyProjClass)
 					{
 						det = new DecoyDetonateEntity(ent.Entity, this);
-						ent.Entity.FindProperty("m_fFlags").IntRecived += (s2, flag) =>
-						{
-							// There doesn't seem to be any property that is tightly coupled with
-							// decoy_started events, but m_fFlags always occurs some time beforehand.
-							if (flag.Value == 1)
-							{
-								if (det.DetonateState == DetonateState.PreDetonate)
-								{
-									// It's possible, but rare, for m_fFlags to be set on the same tick as decoy_started
-									((DecoyDetonateEntity)det).FlagTime = CurrentTime;
-								}
-							}
-						};
 					}
 					else
 					{
-						bool isHE = false;
-						ent.Entity.FindProperty("m_flDamage").FloatRecived += (s3, dmg) =>
-						{
-							isHE = dmg.Value != 100;
-						};
-
-						// Need to be sure it's not just using the value from the default update
-						// so use pretickdone to be sure it's correct
-						EventHandler<EventArgs> lambda = null;
-						lambda = (s2, ee) =>
-						{
-							if (isHE)
-								det = new HEDetonateEntity(ent.Entity, this);
-							else
-								det = new FlashDetonateEntity(ent.Entity, this);
-
-							DetonateEntities[ent.Entity.ID] = det;
-							PreTickDone -= lambda;
-						};
-
-						PreTickDone += lambda;
+						det = new BaseProjectileEntity(ent.Entity, this);
 					}
 
-					if (det != null && det.DetonateState == DetonateState.PreDetonate)
+					if (det.DetonateState == DetonateState.PreDetonate)
 					{
 						//DT_Inferno entity is created on the same tick as inferno_startburn, but parsed after
 						if (projClass == infernoClass)
@@ -1997,9 +1962,8 @@ namespace DemoInfo
 		private void PopDetonateEntity(int entID)
 		{
 			var detEntity = DetonateEntities[entID];
-			var entType = detEntity.GetType();
 
-			if (detEntity.DetonateState == DetonateState.PreDetonate && !(entType == typeof(FlashDetonateEntity) || entType == typeof(HEDetonateEntity)))
+			if (detEntity.DetonateState == DetonateState.PreDetonate && !(detEntity is BaseProjectileEntity))
 			{
 				// This happens when a player throws a grenade, but it never detonates.
 				// Either the round ended before detonation, or if it's a molotov it detonated in the sky.

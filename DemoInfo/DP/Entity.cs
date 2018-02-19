@@ -371,6 +371,7 @@ namespace DemoInfo.DP
 		virtual internal Player Owner { get; set; }
 
 		protected DemoParser parser;
+		protected Entity entity;
 
 		public OwnedEntity(DemoParser _parser)
 		{
@@ -380,6 +381,7 @@ namespace DemoInfo.DP
 		{
 			parser = _parser;
 			EntityID = ent.ID;
+			entity = ent;
 			subToProps(ent);
 		}
 
@@ -562,6 +564,20 @@ namespace DemoInfo.DP
 		{
 			NadeArgs = new DecoyEventArgs(NadeArgs);
 			NadeArgs.Interpolated = true;
+
+			ent.FindProperty("m_fFlags").IntRecived += (s, flag) =>
+			{
+				// There doesn't seem to be any property that is tightly coupled with
+				// decoy_started events, but m_fFlags always occurs some time beforehand.
+				if (flag.Value == 1)
+				{
+					if (DetonateState == DetonateState.PreDetonate)
+					{
+						// It's possible, but rare, for m_fFlags to be set on the same tick as decoy_started
+						FlagTime = parser.CurrentTime;
+					}
+				}
+			};
 		}
 
 		internal override void RaiseNadeStart()
@@ -581,12 +597,23 @@ namespace DemoInfo.DP
 		}
 	}
 
-	class HEDetonateEntity : DetonateEntity
+	class BaseProjectileEntity : DetonateEntity
 	{
-		internal HEDetonateEntity(Entity ent, DemoParser parser) : base(ent, parser)
+		// The same entity is used for both HEs and Flashes
+		// But we need to be able to use data from before we can determine which type it is
+
+		internal float DmgRadius;
+		const float HE_DMGRADIUS = 350; // Just have to hope 350 remains the default, but there's no guarantee
+		bool isHE;
+
+		internal BaseProjectileEntity(Entity ent, DemoParser parser) : base(ent, parser)
 		{
-			NadeArgs = new GrenadeEventArgs(NadeArgs);
+			NadeArgs = new FlashEventArgs(NadeArgs);
 			NadeArgs.Interpolated = true;
+
+			ent.FindProperty("m_DmgRadius").FloatRecived += (s, dmg) => DmgRadius = dmg.Value;
+
+			setIsHE();
 		}
 
 		internal override void RaiseNadeStart()
@@ -596,41 +623,39 @@ namespace DemoInfo.DP
 
 		internal override void RaiseNadeEnd()
 		{
-			parser.RaiseGrenadeExploded((GrenadeEventArgs)NadeArgs);
+			if (isHE)
+				parser.RaiseGrenadeExploded((GrenadeEventArgs)NadeArgs);
+			else
+				parser.RaiseFlashExploded((FlashEventArgs)NadeArgs);
+
 			DetonateState = DetonateState.Detonated;
 		}
 
 		internal override void CopyAndReplaceNadeArgs()
 		{
-			NadeArgs = new GrenadeEventArgs(NadeArgs);
+			if (isHE)
+				NadeArgs = new GrenadeEventArgs(NadeArgs);
+			else
+				NadeArgs = new FlashEventArgs(NadeArgs);
+		}
+
+		internal void setIsHE()
+		{
+			EventHandler<EventArgs> lambda = null;
+			lambda = (s2, ee) =>
+			{
+				isHE = DmgRadius == HE_DMGRADIUS;
+
+				if (isHE)
+					NadeArgs = new GrenadeEventArgs(NadeArgs);
+
+				parser.PreTickDone -= lambda;
+			};
+
+			parser.PreTickDone += lambda;
 		}
 	}
 
-	class FlashDetonateEntity : DetonateEntity
-	{
-		internal FlashDetonateEntity(Entity ent, DemoParser parser)
-			: base(ent, parser)
-		{
-			NadeArgs = new FlashEventArgs(NadeArgs);
-			NadeArgs.Interpolated = true;
-		}
-
-		internal override void RaiseNadeStart()
-		{
-
-		}
-
-		internal override void RaiseNadeEnd()
-		{
-			parser.RaiseFlashExploded((FlashEventArgs)NadeArgs);
-			DetonateState = DetonateState.Detonated;
-		}
-
-		internal override void CopyAndReplaceNadeArgs()
-		{
-			NadeArgs = new FlashEventArgs(NadeArgs);
-		}
-	}
 	#region Update-Types
 	class PropertyUpdateEventArgs<T> : EventArgs
 	{
