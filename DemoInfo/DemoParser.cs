@@ -1246,7 +1246,11 @@ namespace DemoInfo
 						if (!PlantedBomb.Defused)
 						{
 							PlantedBomb.BombState = BombState.Planted;
-							PlantedBomb.Defuser = null;
+							// It's possible for one player to abort a defuse and
+							// another to start a defuse on the same tick,
+							// so defuser needs to be checked before setting to null
+							if (PlantedBomb.Defuser == p)
+								PlantedBomb.Defuser = null;
 
 							var abortArgs = new BombDefuseEventArgs();
 							abortArgs.Player = p;
