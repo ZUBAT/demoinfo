@@ -1963,7 +1963,7 @@ namespace DemoInfo
 		{
 			var detEntity = DetonateEntities[entID];
 
-			if (detEntity.DetonateState == DetonateState.PreDetonate && !(detEntity is BaseProjectileEntity))
+			if (detEntity.DetonateState == DetonateState.PreDetonate && (!(detEntity is BaseProjectileEntity) || GameInfo.FreezePeriod))
 			{
 				// This happens when a player throws a grenade, but it never detonates.
 				// Either the round ended before detonation, or if it's a molotov it detonated in the sky.
